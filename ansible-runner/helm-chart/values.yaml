@@ -32,9 +32,10 @@ ansible:
     - requests
 
   # Ansible collections to install
+  # Pinned to versions compatible with ansible-core 2.15.x (UBI8 Python 3.9)
   collections:
-    - kubernetes.core
-    - community.general
+    - kubernetes.core:==3.2.0
+    - community.general:==9.5.0
 
   # Additional environment variables for the playbook execution
   extraVars:
