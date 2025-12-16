@@ -19,62 +19,6 @@ spec:
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       restartPolicy: {{ .Values.job.restartPolicy }}
-      initContainers:
-      # Init container to prepare the environment
-      - name: ansible-init
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          echo "Preparing Ansible environment..."
-
-          # Install Ansible and required packages
-          pip install --upgrade pip
-          pip install -r /config/requirements.txt
-
-          # Install required Ansible collections
-          while read collection; do
-            [ -z "$collection" ] || ansible-galaxy collection install "$collection"
-          done < /config/collections.txt
-
-          # Copy configuration
-          mkdir -p /shared/ansible
-          cp /config/ansible.cfg /shared/ansible/
-          cp /config/inventory.yaml /shared/ansible/
-
-          # Create kubeconfig from service account token
-          cat > /shared/ansible/kubeconfig << EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - name: default
-            cluster:
-              certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-              server: https://kubernetes.default.svc
-          contexts:
-          - name: default
-            context:
-              cluster: default
-              user: default
-          current-context: default
-          users:
-          - name: default
-            user:
-              token: \$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-          EOF
-
-          echo "Ansible environment prepared successfully"
-        volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: shared-data
-          mountPath: /shared
-        resources:
-          {{- toYaml .Values.resources | nindent 10 }}
-
       containers:
       - name: ansible-runner
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -86,9 +30,9 @@ spec:
         - name: CLUSTER_API_URL
           value: "{{ .Values.deployer.apiUrl | default "https://api.cluster.example.com:6443" }}"
         - name: ANSIBLE_CONFIG
-          value: "/ansible/ansible.cfg"
+          value: "/tmp/ansible/ansible.cfg"
         - name: KUBECONFIG
-          value: "/ansible/kubeconfig"
+          value: "/tmp/ansible/kubeconfig"
         # Git repository configuration
         - name: GIT_REPO_URL
           value: {{ .Values.ansible.repository.url | quote }}
@@ -118,35 +62,74 @@ spec:
         - |
           set -e
 
-          echo "Starting Ansible runner job..."
+          echo "=== Ansible Runner Job Starting ==="
           echo "Repository: $GIT_REPO_URL"
           echo "Branch: $GIT_REPO_BRANCH"
           echo "Playbook: $PLAYBOOK_PATH"
+          echo "Namespace: $NAMESPACE"
 
-          # Change to working directory
-          cd /ansible
+          # Create working directory
+          mkdir -p /tmp/ansible
+          cd /tmp/ansible
+
+          # Install Ansible and required packages
+          echo "=== Installing Python packages ==="
+          pip install --quiet --upgrade pip
+          pip install --quiet -r /config/requirements.txt
+
+          # Install required Ansible collections
+          echo "=== Installing Ansible collections ==="
+          while read collection; do
+            [ -z "$collection" ] || ansible-galaxy collection install "$collection" --force
+          done < /config/collections.txt
+
+          # Copy Ansible configuration
+          cp /config/ansible.cfg /tmp/ansible/
+          cp /config/inventory.yaml /tmp/ansible/
+
+          # Create kubeconfig from service account token
+          echo "=== Creating kubeconfig ==="
+          cat > /tmp/ansible/kubeconfig << 'KUBECONFIG_EOF'
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: default
+            cluster:
+              certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              server: https://kubernetes.default.svc
+          contexts:
+          - name: default
+            context:
+              cluster: default
+              user: default
+          current-context: default
+          users:
+          - name: default
+            user:
+              tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+          KUBECONFIG_EOF
 
           # Clone the Git repository with playbooks
-          echo "Cloning repository..."
+          echo "=== Cloning playbook repository ==="
           {{- if .Values.ansible.repository.secretName }}
           git clone --branch ${GIT_REPO_BRANCH} \
             https://${GIT_USERNAME}:${GIT_PASSWORD}@$(echo ${GIT_REPO_URL} | sed 's|https://||') \
-            /ansible/playbooks
+            /tmp/ansible/playbooks
           {{- else }}
-          git clone --branch ${GIT_REPO_BRANCH} ${GIT_REPO_URL} /ansible/playbooks
+          git clone --branch ${GIT_REPO_BRANCH} ${GIT_REPO_URL} /tmp/ansible/playbooks
           {{- end }}
 
-          cd /ansible/playbooks
+          cd /tmp/ansible/playbooks
 
           # Install any additional requirements from the playbook repository
           if [ -f requirements.yml ]; then
-            echo "Installing additional Ansible requirements..."
+            echo "=== Installing requirements.yml ==="
             ansible-galaxy install -r requirements.yml
           fi
 
           if [ -f requirements.txt ]; then
-            echo "Installing additional Python requirements..."
-            pip install -r requirements.txt
+            echo "=== Installing requirements.txt ==="
+            pip install --quiet -r requirements.txt
           fi
 
           # Prepare extra variables
@@ -157,20 +140,22 @@ spec:
           {{- end }}
 
           # Run the playbook
-          echo "Executing playbook: $PLAYBOOK_PATH"
+          echo "=== Executing Ansible Playbook ==="
+          echo "Playbook: $PLAYBOOK_PATH"
           echo "Extra vars: $EXTRA_VARS"
 
           ansible-playbook \
-            -i /ansible/inventory.yaml \
+            -i /tmp/ansible/inventory.yaml \
             --extra-vars "$EXTRA_VARS" \
+            -v \
             ${PLAYBOOK_PATH}
 
-          echo "Ansible playbook execution completed successfully"
-          echo "Job completed successfully"
+          echo "=== Ansible Runner Job Completed Successfully ==="
 
         volumeMounts:
-        - name: shared-data
-          mountPath: /ansible
+        - name: config
+          mountPath: /config
+          readOnly: true
 
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
@@ -179,5 +164,3 @@ spec:
       - name: config
         configMap:
           name: {{ include "ansible-runner.fullname" . }}-config
-      - name: shared-data
-        emptyDir: {}

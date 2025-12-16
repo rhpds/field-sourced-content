@@ -24,6 +24,7 @@ ansible:
 
   # Additional Python requirements
   requirements:
+    - ansible-core
     - ansible-runner
     - kubernetes
     - openshift
