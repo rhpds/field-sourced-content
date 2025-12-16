@@ -14,14 +14,9 @@ data:
     [defaults]
     host_key_checking = False
     stdout_callback = yaml
-    library = /opt/ansible/library
-    action_plugins = /opt/ansible/action_plugins
-    filter_plugins = /opt/ansible/filter_plugins
     retry_files_enabled = False
     log_path = /tmp/ansible.log
-
-    [inventory]
-    enable_plugins = kubernetes.core.k8s
+    interpreter_python = auto_silent
 
     [ssh_connection]
     pipelining = True
@@ -38,8 +33,10 @@ data:
     {{ . }}
     {{- end }}
 
-  # Example inventory
+  # Inventory for local execution (connecting to Kubernetes API)
   inventory.yaml: |
-    plugin: kubernetes.core.k8s
-    connections:
-      - kubeconfig: /tmp/kubeconfig
+    all:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: "{{ "{{" }} ansible_playbook_python {{ "}}" }}"
