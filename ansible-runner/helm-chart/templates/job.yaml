@@ -166,33 +166,6 @@ spec:
             ${PLAYBOOK_PATH}
 
           echo "Ansible playbook execution completed successfully"
-
-          {{- if .Values.output.enabled }}
-          # Create output ConfigMap with results
-          cat > /tmp/output.yaml << EOF
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: {{ include "ansible-runner.fullname" . }}-output
-            namespace: {{ .Values.namespace.name }}
-            labels:
-              {{- include "ansible-runner.labels" . | nindent 6 }}
-              {{- if .Values.output.userInfoLabel }}
-              demo.redhat.com/userinfo: ""
-              {{- end }}
-            annotations:
-              argocd.argoproj.io/sync-wave: {{ .Values.syncWave.output | quote }}
-          data:
-            ansible_status: "completed"
-            execution_time: "\$(date)"
-            playbook: "${PLAYBOOK_PATH}"
-            repository: "${GIT_REPO_URL}"
-            branch: "${GIT_REPO_BRANCH}"
-          EOF
-
-          kubectl apply -f /tmp/output.yaml
-          {{- end }}
-
           echo "Job completed successfully"
 
         volumeMounts:

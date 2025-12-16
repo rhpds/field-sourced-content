@@ -88,11 +88,8 @@ namespace:
 syncWave:
   rbac: "1"
   job: "2"
-  output: "3"
 
-# Output ConfigMap configuration
-output:
-  # Whether to create an output ConfigMap with execution results
-  enabled: true
-  # Whether to add the demo.redhat.com/userinfo label for RHDP integration
-  userInfoLabel: true
+# Deployer values (injected by field content workload)
+deployer:
+  domain: ""
+  apiUrl: ""

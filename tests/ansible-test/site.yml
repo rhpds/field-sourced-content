@@ -2,7 +2,7 @@
 - name: Test Ansible Runner
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   tasks:
   - name: Display cluster information
@@ -28,4 +28,4 @@
           test_status: "success"
           message: "Ansible runner executed successfully"
           cluster_domain: "{{ cluster_domain | default('not provided') }}"
-          timestamp: "{{ ansible_date_time.iso8601 | default('unknown') }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
