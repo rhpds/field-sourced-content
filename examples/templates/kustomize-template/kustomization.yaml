@@ -11,16 +11,13 @@ resources:
   - userinfo.yaml
 
 # Common labels applied to all resources
-commonLabels:
-  demo.redhat.com/application: "field-content-demo"
-  app: field-content-demo
+labels:
+  - pairs:
+      demo.redhat.com/application: field-content-demo
+      app: field-content-demo
 
 # Namespace for all resources
 namespace: field-content-demo
 
 # Name prefix for all resources
 namePrefix: demo-
-
-# Patch for environment-specific values
-patches:
-  - path: deployment-patch.yaml
