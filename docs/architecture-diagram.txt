@@ -1,0 +1,213 @@
+╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                           FIELD CONTENT ARCHITECTURE OVERVIEW                                     ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    RED HAT DEMO PLATFORM (RHDP)                                     │
+│                                                                                                     │
+│   User orders "Field Content" CI  ──►  AgnosticD runs ocp4_workload_field_content role              │
+│                                                                                                     │
+│   Variables provided:                                                                               │
+│   • ocp4_workload_field_content_gitops_repo_url: "https://github.com/developer/my-demo"            │
+│   • ocp4_workload_field_content_deployment_type: "helm"                                            │
+│   • cluster_domain, cluster_api_url (auto-detected)                                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                               │
+                                               ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                      OPENSHIFT CLUSTER                                              │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────┐   │
+│  │                              openshift-gitops namespace                                      │   │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────┐    │   │
+│  │  │                              ARGOCD SERVER                                          │    │   │
+│  │  │                                                                                     │    │   │
+│  │  │  Application: field-content-demo                                                   │    │   │
+│  │  │  ├── Source: https://github.com/developer/my-demo                                 │    │   │
+│  │  │  ├── Path: / (or charts/my-app)                                                   │    │   │
+│  │  │  ├── Helm Values: { deployer: { domain: "...", apiUrl: "..." } }                 │    │   │
+│  │  │  └── Destination: field-content-demo namespace                                    │    │   │
+│  │  │                                                                                     │    │   │
+│  │  │         │                                                                           │    │   │
+│  │  │         │ Syncs & monitors                                                          │    │   │
+│  │  │         ▼                                                                           │    │   │
+│  │  └────────────────────────────────────────────────────────────────────────────────────┘    │   │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                               │                                                     │
+│  ┌────────────────────────────────────────────▼────────────────────────────────────────────────┐   │
+│  │                              field-content-demo namespace                                    │   │
+│  │                                                                                              │   │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │                     FOR HELM/KUSTOMIZE TEMPLATES                                       │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  Wave 0: Namespace ──► Wave 1: ConfigMaps, Services ──► Wave 2: Deployments, Routes   │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌───────────────┐  │ │   │
+│  │  │  │   Namespace     │   │   ConfigMap     │   │   Deployment    │   │    Route      │  │ │   │
+│  │  │  │                 │   │   (config)      │   │   (app pods)    │   │  (ingress)    │  │ │   │
+│  │  │  └─────────────────┘   └─────────────────┘   └─────────────────┘   └───────────────┘  │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  Wave 3: ┌─────────────────────────────────────────────────────────────────────────┐  │ │   │
+│  │  │          │  ConfigMap (userinfo)                                                    │  │ │   │
+│  │  │          │  labels:                                                                 │  │ │   │
+│  │  │          │    demo.redhat.com/userinfo: ""  ◄── RHDP reads this for user display   │  │ │   │
+│  │  │          │  data:                                                                   │  │ │   │
+│  │  │          │    demo_url: "https://app.apps.cluster.example.com"                     │  │ │   │
+│  │  │          │    access_instructions: "..."                                            │  │ │   │
+│  │  │          └─────────────────────────────────────────────────────────────────────────┘  │ │   │
+│  │  └────────────────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                                              │   │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │                     FOR ANSIBLE TEMPLATES                                              │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  Wave 1: RBAC ──► Wave 2: Ansible Job                                                 │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐                      │ │   │
+│  │  │  │ ServiceAccount  │   │   ClusterRole   │   │ClusterRoleBinding│                      │ │   │
+│  │  │  │ (ansible-runner)│   │   (permissions) │   │ (binds SA)       │                      │ │   │
+│  │  │  └─────────────────┘   └─────────────────┘   └─────────────────┘                      │ │   │
+│  │  │                                                                                        │ │   │
+│  │  │  ┌──────────────────────────────────────────────────────────────────────────────────┐ │ │   │
+│  │  │  │                        Kubernetes Job: ansible-runner                             │ │ │   │
+│  │  │  │  ┌────────────────────────────────────────────────────────────────────────────┐  │ │ │   │
+│  │  │  │  │  Container: ansible-runner (UBI8 Python 3.9)                               │  │ │ │   │
+│  │  │  │  │                                                                             │  │ │ │   │
+│  │  │  │  │  1. pip install ansible-core, kubernetes, etc.                             │  │ │ │   │
+│  │  │  │  │  2. ansible-galaxy collection install kubernetes.core                      │  │ │ │   │
+│  │  │  │  │  3. git clone https://github.com/developer/playbooks ──┐                   │  │ │ │   │
+│  │  │  │  │  4. ansible-playbook site.yml --extra-vars "..."       │                   │  │ │ │   │
+│  │  │  │  │                                                         │                   │  │ │ │   │
+│  │  │  │  │  Uses:                                                  │                   │  │ │ │   │
+│  │  │  │  │  • ServiceAccount token for K8s API auth               │                   │  │ │ │   │
+│  │  │  │  │  • Cluster info passed via env vars                    ▼                   │  │ │ │   │
+│  │  │  │  │  ┌───────────────────────────────────────────────────────────────────────┐ │  │ │ │   │
+│  │  │  │  │  │  EXTERNAL GIT REPO (developer's playbooks)                           │ │  │ │ │   │
+│  │  │  │  │  │  ├── site.yml           ◄── Main playbook                            │ │  │ │ │   │
+│  │  │  │  │  │  ├── requirements.yml   ◄── Additional collections/roles             │ │  │ │ │   │
+│  │  │  │  │  │  ├── requirements.txt   ◄── Additional Python packages               │ │  │ │ │   │
+│  │  │  │  │  │  └── roles/             ◄── Custom roles                             │ │  │ │ │   │
+│  │  │  │  │  └───────────────────────────────────────────────────────────────────────┘ │  │ │ │   │
+│  │  │  │  └────────────────────────────────────────────────────────────────────────────┘  │ │ │   │
+│  │  │  │                                                                                   │ │ │   │
+│  │  │  │  Playbook creates resources via kubernetes.core.k8s:                             │ │ │   │
+│  │  │  │  ──► Deployments, Services, Routes, ConfigMaps, etc.                             │ │ │   │
+│  │  │  └──────────────────────────────────────────────────────────────────────────────────┘ │ │   │
+│  │  │                                                                                        │ │   │
+│  │  └────────────────────────────────────────────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                               │
+                                               ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              DATA FLOWS BACK TO RHDP                                                │
+│                                                                                                     │
+│  1. ArgoCD monitors Application health (demo.redhat.com/application labels)                       │
+│  2. ocp4_workload_field_content role waits for sync completion                                     │
+│  3. Role reads ConfigMaps with demo.redhat.com/userinfo label                                      │
+│  4. Data passed back to RHDP for user display                                                      │
+│                                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                                DEPLOYMENT PATTERN COMPARISON                                      ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  PATTERN 1: PURE HELM                                                                              │
+│                                                                                                    │
+│  Developer Repo                  ArgoCD                    Cluster                                 │
+│  ┌──────────────┐               ┌──────────┐              ┌──────────────────────┐                │
+│  │ Chart.yaml   │               │          │              │ Namespace            │                │
+│  │ values.yaml  │ ──renders──►  │  Helm    │ ──creates──► │ Deployment           │                │
+│  │ templates/   │               │ Template │              │ Service, Route       │                │
+│  └──────────────┘               └──────────┘              │ ConfigMap (userinfo) │                │
+│                                                           └──────────────────────┘                │
+│  ✓ Best for: Apps with cluster-specific values needed                                             │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  PATTERN 2: PURE KUSTOMIZE                                                                         │
+│                                                                                                    │
+│  Developer Repo                  ArgoCD                    Cluster                                 │
+│  ┌──────────────────┐           ┌──────────┐              ┌──────────────────────┐                │
+│  │ kustomization.yaml│          │          │              │ Namespace            │                │
+│  │ deployment.yaml   │──builds──►│Kustomize │ ──creates──► │ Deployment           │                │
+│  │ service.yaml      │          │  Build   │              │ Service, Route       │                │
+│  │ userinfo.yaml     │          └──────────┘              │ ConfigMap (userinfo) │                │
+│  └──────────────────┘                                     └──────────────────────┘                │
+│                                                                                                    │
+│  ✓ Best for: Static manifests, no cluster-specific values                                         │
+│  ✗ Limitation: $(CLUSTER_DOMAIN) substitution NOT supported                                       │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  PATTERN 3: ANSIBLE                                                                                │
+│                                                                                                    │
+│  Developer GitOps Repo          ArgoCD        Cluster                  Playbook Repo              │
+│  ┌──────────────┐              ┌──────────┐   ┌───────────────────┐   ┌────────────────┐          │
+│  │ Chart.yaml   │              │          │   │ Job (ansible-     │   │ site.yml       │          │
+│  │ values.yaml  │ ──renders──► │  Helm    │──►│ runner container) │──►│ requirements.yml│          │
+│  │              │              │ Template │   │                   │   │ roles/         │          │
+│  └──────────────┘              └──────────┘   │ Runs playbook ────┼───┘                │          │
+│                                               │ Creates resources │◄── git clone        │          │
+│                                               └───────────────────┘                     │          │
+│                                                        │                                           │
+│                                                        ▼                                           │
+│                                               ┌───────────────────┐                               │
+│                                               │ Deployment        │                               │
+│                                               │ Service, Route    │                               │
+│                                               │ ConfigMap         │                               │
+│                                               │ (anything Ansible │                               │
+│                                               │  can create!)     │                               │
+│                                               └───────────────────┘                               │
+│                                                                                                    │
+│  ✓ Best for: Complex automation, existing Ansible expertise, operators, multi-step workflows     │
+│  ✓ Can pull external collections and roles                                                        │
+│  ✓ Full programmatic control                                                                       │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                              ANSIBLE RUNNER DETAIL VIEW                                           ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                    │
+│   GitHub/GitLab                           OpenShift Cluster                                        │
+│   ┌─────────────────┐                    ┌──────────────────────────────────────────────────────┐ │
+│   │ Playbook Repo   │                    │  Job: ansible-runner                                  │ │
+│   │                 │    git clone       │  ┌────────────────────────────────────────────────┐  │ │
+│   │ site.yml        │◄───────────────────│  │ Container: ubi8/python-39                      │  │ │
+│   │ requirements.yml│                    │  │                                                 │  │ │
+│   │ roles/          │                    │  │  Environment:                                   │  │ │
+│   └─────────────────┘                    │  │  • CLUSTER_DOMAIN=apps.cluster.example.com     │  │ │
+│                                          │  │  • CLUSTER_API_URL=https://api...              │  │ │
+│                                          │  │  • NAMESPACE=field-content-demo                │  │ │
+│   ┌─────────────────┐                    │  │  • KUBECONFIG=/tmp/ansible/kubeconfig          │  │ │
+│   │ Ansible Galaxy  │    collection      │  │                                                 │  │ │
+│   │                 │◄───install─────────│  │  Execution:                                     │  │ │
+│   │ kubernetes.core │                    │  │  1. pip install -r requirements.txt            │  │ │
+│   │ community.general│                   │  │  2. ansible-galaxy collection install ...      │  │ │
+│   └─────────────────┘                    │  │  3. git clone $GIT_REPO_URL                    │  │ │
+│                                          │  │  4. ansible-playbook site.yml \                │  │ │
+│                                          │  │       --extra-vars "cluster_domain=... \       │  │ │
+│                                          │  │                      namespace=..."            │  │ │
+│                                          │  │                                                 │  │ │
+│                                          │  │  Auth: ServiceAccount token mounted at         │  │ │
+│                                          │  │  /var/run/secrets/kubernetes.io/serviceaccount │  │ │
+│                                          │  └────────────────────────────────────────────────┘  │ │
+│                                          │                         │                            │ │
+│                                          │                         │ kubernetes.core.k8s        │ │
+│                                          │                         ▼                            │ │
+│                                          │  ┌────────────────────────────────────────────────┐  │ │
+│                                          │  │ Created Resources:                              │  │ │
+│                                          │  │ • Deployments    • Services    • Routes        │  │ │
+│                                          │  │ • ConfigMaps     • Secrets     • PVCs          │  │ │
+│                                          │  │ • Operators      • CRDs        • Anything!     │  │ │
+│                                          │  └────────────────────────────────────────────────┘  │ │
+│                                          └──────────────────────────────────────────────────────┘ │
+│                                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
