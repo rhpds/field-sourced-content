@@ -1,9 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-metadata:
-  name: field-content-kustomize-demo
-
 # Base resources to deploy
 resources:
   - namespace.yaml
@@ -24,21 +21,6 @@ namespace: field-content-demo
 # Name prefix for all resources
 namePrefix: demo-
 
-# Configuration replacement using environment variables
-replacements:
-  # Replace cluster domain in route
-  - source:
-      kind: Route
-      name: route
-      fieldPath: spec.host
-    targets:
-      - select:
-          kind: Route
-        fieldPaths:
-          - spec.host
-    options:
-      delimiter: '.'
-
 # Patch for environment-specific values
-patchesStrategicMerge:
-  - deployment-patch.yaml
+patches:
+  - path: deployment-patch.yaml

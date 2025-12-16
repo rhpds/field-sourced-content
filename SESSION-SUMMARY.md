@@ -196,6 +196,13 @@ ansible-runner:
 3. **Developer Onboarding**: Create user guides
 4. **Feedback Integration**: Refine based on testing results
 
+### 📝 Documentation TODO
+- [ ] **Cluster Addon Creation Guide** (AsciiDoc format)
+  - How to create custom cluster-addons
+  - Required structure and conventions
+  - Integration with ArgoCD and RHDP
+  - *Awaiting further guidance on specifics*
+
 ## 🧪 Testing Approach
 
 When ready to test:
