@@ -9,10 +9,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 data:
-  # Basic demo information
   demo_title: "Kustomize Field Content Demo"
-  access_instructions: "Visit the application URL to see your demo"
-  demo_url: "https://demo-app.$(CLUSTER_DOMAIN)/"  # Replaced by kustomize-envvar
-  # Additional custom data
+  access_instructions: "Visit the application route URL to see your demo"
   deployment_type: "kustomize"
-  cluster_api: "$(API_URL)"  # Replaced by kustomize-envvar

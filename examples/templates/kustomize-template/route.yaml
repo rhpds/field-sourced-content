@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  host: demo-app.$(CLUSTER_DOMAIN)  # Replaced by kustomize-envvar plugin
+  # Omit host to let OpenShift auto-generate based on route name and namespace
   path: /
   to:
     kind: Service

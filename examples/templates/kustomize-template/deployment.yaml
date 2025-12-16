@@ -29,8 +29,6 @@ spec:
             configMapKeyRef:
               name: config
               key: greeting
-        - name: CLUSTER_DOMAIN
-          value: "$(CLUSTER_DOMAIN)"  # Replaced by kustomize-envvar plugin
         resources:
           requests:
             cpu: 100m
