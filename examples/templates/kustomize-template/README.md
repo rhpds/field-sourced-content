@@ -148,6 +148,20 @@ spec:
 5. **Validate locally** before submitting
 6. **Use hardcoded hostnames** in Routes if needed, or omit the host field to let OpenShift generate one
 
+## Tested Configuration
+
+This template has been tested and verified with:
+- OpenShift 4.20
+- OpenShift GitOps (ArgoCD)
+- Standard Kustomize processing (no plugins required)
+
+The following features work correctly:
+- Resource creation with proper sync waves
+- Label application via Kustomize `labels` transformer
+- Name prefixing with `namePrefix`
+- Namespace assignment
+- Route auto-generation (when host is omitted)
+
 ## Support
 
 For questions about field content development with Kustomize:

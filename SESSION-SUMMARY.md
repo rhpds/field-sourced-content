@@ -1,6 +1,7 @@
 # Field Content Project - Session Summary
 
 **Date**: 2025-12-16
+**Repository**: https://github.com/rhpds/field-sourced-content
 **Objective**: Create a self-service CI development platform for Red Hat Demo Platform (RHDP)
 
 ## 🎯 Project Overview
@@ -84,11 +85,12 @@ field-content/
     │       │   ├── setup-database.yml
     │       │   └── requirements.yml
     │       └── README.md
-    └── cluster-addons/                # Reference examples (cleaned)
-        ├── devspaces/                 # Red Hat DevSpaces
-        ├── rhoai/                     # Red Hat OpenShift AI
+    └── cluster-addons/                # Reference examples
+        ├── operator-install/          # Generic OLM operator installer (tested)
+        ├── image-prepull/             # Pre-pull images to nodes (tested)
+        ├── openshift-virtualization/  # CNV stack deployment (tested)
         ├── webterminal/               # Web Terminal
-        ├── datavolumes/               # Data Volumes
+        ├── rhoai/                     # Red Hat OpenShift AI
         ├── charts/                    # Shared charts
         └── README.md
 ```
@@ -152,10 +154,11 @@ ansible-runner:
 - Sync wave configuration
 - Example manifests (deployment, service, route)
 
-**Kustomize Template**: Environment variable injection with:
-- `kustomize-envvar` plugin usage
-- `$(CLUSTER_DOMAIN)` and `$(API_URL)` replacement
-- Overlay pattern examples
+**Kustomize Template**: Static manifest deployment:
+- **Limitation**: Environment variable substitution NOT supported
+- Use for manifest collections without cluster-specific values
+- RHDP integration via userinfo ConfigMap
+- Documentation with clear limitations stated
 
 **Ansible Template**: Full automation workflow with:
 - Integration with ansible-runner subchart
@@ -184,14 +187,40 @@ ansible-runner:
 
 ### ✅ Completed
 - [x] Field content workload role with proper variable naming
-- [x] Ansible runner component (standalone + Helm chart)
+- [x] Ansible runner component (single-container Helm chart)
 - [x] Complete developer templates for all patterns
 - [x] Comprehensive documentation
-- [x] Example repository cleanup (removed 3scale, rhsso, compliance)
+- [x] New cluster addons: operator-install, image-prepull, openshift-virtualization
 - [x] Standards documentation
+- [x] **All components tested on OpenShift 4.20 SNO**
+
+### ✅ Testing Results (OpenShift 4.20)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Operator Install (web-terminal) | ✅ PASSED | OLM Subscription working |
+| Image Pre-Pull | ✅ PASSED | DaemonSet deploys to all nodes |
+| OpenShift Virtualization | ✅ PASSED | Full CNV stack deployed |
+| Helm Template | ✅ PASSED | Value substitution working |
+| Kustomize Template | ✅ PASSED | Static manifests only |
+| Ansible Runner | ✅ PASSED | Playbook execution + ConfigMap creation |
+
+### 🔧 Key Fixes Applied During Testing
+
+1. **Ansible Runner**:
+   - Simplified to single-container architecture
+   - Fixed kubeconfig to use `tokenFile` instead of shell expansion
+   - Added `ansible-core` to requirements
+   - Pinned collections: `kubernetes.core:==3.2.0`, `community.general:==9.5.0`
+   - Changed `stdout_callback` from `yaml` to `default`
+
+2. **Kustomize Template**:
+   - Removed unsupported fields (`replacements.options`, `metadata`)
+   - Removed `$(CLUSTER_DOMAIN)` patterns (not supported by ArgoCD plugin)
+   - Documented limitations clearly
 
 ### 🔄 Next Steps
-1. **Testing Phase**: Deploy on vanilla OpenShift cluster
+1. **E2E Testing**: Fresh end-to-end tests on new cluster
 2. **Integration Validation**: Test with existing RHDP infrastructure
 3. **Developer Onboarding**: Create user guides
 4. **Feedback Integration**: Refine based on testing results
@@ -202,30 +231,6 @@ ansible-runner:
   - Required structure and conventions
   - Integration with ArgoCD and RHDP
   - *Awaiting further guidance on specifics*
-
-## 🧪 Testing Approach
-
-When ready to test:
-
-1. **Provision vanilla OpenShift cluster**
-2. **Test basic Helm deployment**:
-   ```yaml
-   # In agnosticV common.yaml
-   ocp4_workload_field_content_gitops_repo_url: "https://github.com/test/helm-demo"
-   ocp4_workload_field_content_deployment_type: "helm"
-   ```
-
-3. **Test Ansible integration**:
-   ```yaml
-   ocp4_workload_field_content_gitops_repo_url: "https://github.com/test/ansible-demo"
-   ocp4_workload_field_content_deployment_type: "helm"  # Uses ansible-template with subchart
-   ```
-
-4. **Validate**:
-   - ArgoCD application creation
-   - Resource deployment
-   - Health checking
-   - ConfigMap data extraction
 
 ## 💡 Key Insights
 
@@ -247,4 +252,5 @@ The implementation successfully addresses all your original requirements and fol
 
 ---
 *Session completed: 2025-12-16*
-*Ready for VS Code continuation and cluster testing*
+*Testing completed: 2025-12-16 (OpenShift 4.20 SNO)*
+*Repository: https://github.com/rhpds/field-sourced-content*

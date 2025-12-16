@@ -321,12 +321,13 @@ agnosticV → GitOps Bootstrap → [K8s Manifests → Ansible Job → K8s Manife
 
 #### 2. Ansible Runner Component
 **Location**: `ansible-runner/`
-- Standalone Job template for simple use cases
+- Single-container architecture (simplified from init+main container design)
 - Full Helm chart for configurable deployments
 - Support for private Git repositories
 - Configurable RBAC permissions
 - Integration with field content workload
-- Comprehensive documentation and examples
+- Uses `tokenFile` for service account authentication
+- Tested with ansible-core 2.15.x and pinned collection versions
 
 #### 3. Developer Templates
 **Location**: `examples/templates/`
@@ -339,11 +340,11 @@ agnosticV → GitOps Bootstrap → [K8s Manifests → Ansible Job → K8s Manife
 - Example manifests and documentation
 
 **Kustomize Template** (`kustomize-template/`):
-- Pure Kustomize approach with environment variable injection
-- Support for kustomize-envvar plugin
-- Overlay patterns for different environments
-- RHDP integration
-- Complete documentation
+- Pure Kustomize approach for static manifests
+- **Limitation**: Environment variable substitution NOT supported
+- Use when cluster-specific values are not needed
+- RHDP integration via userinfo ConfigMap
+- Complete documentation with limitations documented
 
 **Ansible Template** (`ansible-template/`):
 - Integration with ansible-runner component
@@ -352,27 +353,47 @@ agnosticV → GitOps Bootstrap → [K8s Manifests → Ansible Job → K8s Manife
 - RBAC configuration examples
 - Complete automation workflow
 
-#### 4. Example Repository
+#### 4. Example Cluster Addons
 **Location**: `examples/cluster-addons/`
-- Copy of existing ocp-cluster-addons for reference (cleaned up)
-- Demonstrates current patterns and best practices
-- Removed: 3scale, rhsso, compliance (not commonly used examples)
-- Remaining examples: DevSpaces, RHOAI, Web Terminal, Data Volumes
+- **operator-install/**: Generic OLM operator installer (tested with web-terminal)
+- **image-prepull/**: DaemonSet to pre-pull container images to nodes
+- **openshift-virtualization/**: Full CNV stack deployment
+- **webterminal/**: Web Terminal operator
+- **rhoai/**: Red Hat OpenShift AI
 
-### 🔄 Current Status
+### ✅ Testing Status
 
-All core components have been implemented and are ready for testing. The architecture supports:
-- **Pure GitOps**: Using Helm or Kustomize
-- **Ansible Automation**: Using Job pods within GitOps workflow
-- **Hybrid Approaches**: Combining GitOps and Ansible patterns
-- **RHDP Integration**: Proper data flow back to platform
+All components have been tested on OpenShift 4.20 SNO cluster:
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Operator Install (web-terminal) | ✅ PASSED | OLM Subscription working |
+| Image Pre-Pull | ✅ PASSED | DaemonSet deploys to all nodes |
+| OpenShift Virtualization | ✅ PASSED | Full CNV stack deployed |
+| Helm Template | ✅ PASSED | Value substitution working |
+| Kustomize Template | ✅ PASSED | Static manifests, env vars NOT supported |
+| Ansible Runner | ✅ PASSED | Playbook execution and ConfigMap creation |
+
+### 🔧 Key Fixes Applied During Testing
+
+1. **Ansible Runner**:
+   - Simplified to single-container architecture
+   - Fixed kubeconfig to use `tokenFile` instead of shell expansion
+   - Added `ansible-core` to requirements
+   - Pinned collections: `kubernetes.core:==3.2.0`, `community.general:==9.5.0`
+   - Changed `stdout_callback` from `yaml` to `default`
+
+2. **Kustomize Template**:
+   - Removed unsupported `replacements.options` and `metadata` fields
+   - Removed `$(CLUSTER_DOMAIN)` patterns (not supported)
+   - Documented limitations clearly
 
 ### 📋 Next Steps
 
-1. **Testing Phase**: Deploy and test with vanilla OpenShift cluster
+1. **E2E Testing**: Run fresh end-to-end tests on a new cluster
 2. **Integration Validation**: Verify integration with existing RHDP infrastructure
-3. **Documentation Refinement**: Update based on testing results
-4. **Developer Onboarding**: Create onboarding materials
+3. **Cluster Addon Creation Guide**: Create AsciiDoc documentation (TODO)
+4. **Developer Onboarding**: Create user guides
 
 ---
 

@@ -5,9 +5,17 @@ This component provides a way to execute Ansible playbooks as Kubernetes Jobs wi
 ## Overview
 
 The Ansible Runner component consists of:
-- A standalone Job template for simple use cases
 - A Helm chart for configurable deployments
 - Integration with the field content workload for automatic cluster information injection
+
+## Architecture
+
+The Ansible Runner uses a single-container architecture that:
+1. Installs required Python packages (ansible-core, kubernetes, openshift, etc.)
+2. Installs specified Ansible collections
+3. Clones your playbook repository from Git
+4. Executes the specified playbook with cluster information passed as extra vars
+5. Uses the in-cluster service account for Kubernetes API access
 
 ## Quick Start
 
@@ -91,7 +99,7 @@ ansible:
 - name: Deploy demo application
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true  # Enable if you need ansible_date_time or other facts
   vars:
     app_name: "ansible-demo"
     app_namespace: "{{ namespace }}"
@@ -226,6 +234,12 @@ The field content workload automatically:
 2. **Git Clone Fails**: Verify repository URL and credentials
 3. **Playbook Fails**: Check logs with `kubectl logs job/ansible-runner-job`
 4. **Collection Missing**: Add to `ansible.collections` in values.yaml
+5. **Collection Version Incompatibility**: The default UBI8 Python 3.9 image includes ansible-core 2.15.x. Pin collections to compatible versions:
+   ```yaml
+   collections:
+     - kubernetes.core:==3.2.0    # Compatible with ansible-core 2.15.x
+     - community.general:==9.5.0  # Compatible with ansible-core 2.15.x
+   ```
 
 ### Debugging
 
@@ -239,8 +253,30 @@ kubectl logs job/ansible-runner-job -n field-content-demo
 # Check created resources
 kubectl get all -n field-content-demo
 
-# View output ConfigMap
-kubectl get configmap ansible-runner-output -o yaml -n field-content-demo
+# View output ConfigMap (created by your playbook)
+kubectl get configmap -l demo.redhat.com/userinfo -n field-content-demo -o yaml
+```
+
+## Tested Configuration
+
+The following configuration has been tested and verified:
+
+```yaml
+# values.yaml
+ansible:
+  requirements:
+    - ansible-core
+    - ansible-runner
+    - kubernetes
+    - openshift
+    - PyYAML
+    - requests
+  collections:
+    - kubernetes.core:==3.2.0
+    - community.general:==9.5.0
+image:
+  repository: registry.redhat.io/ubi8/python-39
+  tag: latest
 ```
 
 ## Examples
