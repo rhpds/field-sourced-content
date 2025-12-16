@@ -1,0 +1,31 @@
+---
+- name: Test Ansible Runner
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+  - name: Display cluster information
+    ansible.builtin.debug:
+      msg: |
+        Cluster Domain: {{ cluster_domain | default('not provided') }}
+        Cluster API URL: {{ cluster_api_url | default('not provided') }}
+        Namespace: {{ namespace | default('not provided') }}
+
+  - name: Create a test ConfigMap
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ansible-test-output
+          namespace: "{{ namespace | default('ansible-runner-test') }}"
+          labels:
+            demo.redhat.com/userinfo: ""
+            app: ansible-test
+        data:
+          test_status: "success"
+          message: "Ansible runner executed successfully"
+          cluster_domain: "{{ cluster_domain | default('not provided') }}"
+          timestamp: "{{ ansible_date_time.iso8601 | default('unknown') }}"
