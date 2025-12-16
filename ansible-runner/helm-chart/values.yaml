@@ -1,0 +1,98 @@
+# Default values for ansible-runner
+
+# Job configuration
+job:
+  name: ansible-runner-job
+  # TTL in seconds for job cleanup (0 = no cleanup)
+  ttlSecondsAfterFinished: 300
+
+  # Restart policy for the job
+  restartPolicy: Never
+
+# Ansible execution configuration
+ansible:
+  # Git repository containing Ansible playbooks
+  repository:
+    url: "https://github.com/your-username/your-playbooks"
+    branch: "main"
+    # If using private repositories, create a secret with git credentials
+    # and reference it here
+    secretName: ""
+
+  # Main playbook to execute
+  playbook: "site.yml"
+
+  # Additional Python requirements
+  requirements:
+    - ansible-runner
+    - kubernetes
+    - openshift
+    - PyYAML
+    - requests
+
+  # Ansible collections to install
+  collections:
+    - kubernetes.core
+    - community.general
+
+  # Additional environment variables for the playbook execution
+  extraVars:
+    # These will be automatically added by the field content workload:
+    # - cluster_domain
+    # - cluster_api_url
+    # - namespace
+
+    # Add your custom variables here
+    # example_var: "example_value"
+
+# Container configuration
+image:
+  repository: registry.redhat.io/ubi8/python-39
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# ServiceAccount configuration
+serviceAccount:
+  name: ansible-runner
+  # Additional annotations for the service account
+  annotations: {}
+
+# RBAC configuration
+rbac:
+  # Whether to create RBAC resources
+  create: true
+
+  # Additional rules for the ClusterRole
+  # Add rules specific to your automation needs
+  additionalRules: []
+  # Example:
+  # - apiGroups: ["operators.coreos.com"]
+  #   resources: ["subscriptions"]
+  #   verbs: ["get", "list", "create"]
+
+# Namespace configuration
+namespace:
+  name: field-content-demo
+  create: true
+
+# Sync wave for ArgoCD deployment order
+syncWave:
+  rbac: "1"
+  job: "2"
+  output: "3"
+
+# Output ConfigMap configuration
+output:
+  # Whether to create an output ConfigMap with execution results
+  enabled: true
+  # Whether to add the demo.redhat.com/userinfo label for RHDP integration
+  userInfoLabel: true

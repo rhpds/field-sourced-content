@@ -1,0 +1,53 @@
+---
+# Optional playbook for configuring monitoring
+# This demonstrates how to create additional automation components
+
+- name: Configure Monitoring for Demo Application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    app_name: "{{ demo_app_name | default('ansible-demo') }}"
+    app_namespace: "{{ demo_namespace | default('field-content-demo') }}"
+
+  tasks:
+  - name: Create ServiceMonitor for Prometheus (if available)
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: "{{ app_name }}-monitor"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+        spec:
+          selector:
+            matchLabels:
+              app: "{{ app_name }}"
+          endpoints:
+          - port: http
+            path: /metrics
+    ignore_errors: true  # ServiceMonitor CRD might not exist
+
+  - name: Create monitoring configuration ConfigMap
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "{{ app_name }}-monitoring"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+        data:
+          monitoring_enabled: "true"
+          metrics_endpoint: "/metrics"
+          health_check_endpoint: "/health"
+
+  - debug:
+      msg: "Monitoring configuration completed for {{ app_name }}"

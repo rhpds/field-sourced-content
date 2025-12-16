@@ -1,0 +1,133 @@
+# Default values for openshift-gitops.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Installs the operator when operator.install is true.
+operator:
+  install: false
+  name: openshift-gitops-operator
+  namespace: openshift-gitops-operator
+  channel: latest
+  installPlanApproval: Automatic
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  # startingCSV: openshift-gitops-operator.x.y.z
+
+# Configures the ArgoCD instance when argocd.install is true.
+# The configuration of any of the components below is optional, so you can uncomment and set the values as needed.
+argocd:
+  install: false
+  name: openshift-gitops
+  namespace: openshift-gitops
+  # rbac:
+  #   policy: |
+  #     g, system:cluster-admins, role:admin
+  #     g, cluster-admins, role:admin
+  #   scopes: '[groups]'
+  # server:
+  #   resources:
+  #     limits:
+  #       cpu: 500m
+  #       memory: 256Mi
+  #     requests:
+  #       cpu: 125m
+  #       memory: 128Mi
+  #   insecure: true
+  #   route:
+  #     enabled: true
+  #     tls:
+  #       termination: edge
+  #       insecureEdgeTerminationPolicy: Redirect
+  # sso:
+  #   dex:
+  #     resources:
+  #       limits:
+  #         cpu: 500m
+  #         memory: 256Mi
+  #       requests:
+  #         cpu: 250m
+  #         memory: 128Mi
+  # applicationSet:
+  #   resources:
+  #     limits:
+  #       cpu: '2'
+  #       memory: 1Gi
+  #     requests:
+  #       cpu: 250m
+  #       memory: 512Mi
+  # repo:
+  #   resources:
+  #     limits:
+  #       cpu: '1'
+  #       memory: 1Gi
+  #     requests:
+  #       cpu: 250m
+  #       memory: 256Mi
+  # redis:
+  #   resources:
+  #     limits:
+  #       cpu: 500m
+  #       memory: 256Mi
+  #     requests:
+  #       cpu: 250m
+  #       memory: 128Mi
+  # controller:
+  #   resources:
+  #     limits:
+  #       cpu: '2'
+  #       memory: 2Gi
+  #     requests:
+  #       cpu: 250m
+  #       memory: 1Gi
+  resourceHealthChecks:
+  - group: operators.coreos.com
+    kind: Subscription
+    check: |
+      health_status = {}
+      if obj.status ~= nil then
+        if obj.status.conditions ~= nil then
+          numDegraded = 0
+          numPending = 0
+          msg = ""
+          for i, condition in pairs(obj.status.conditions) do
+            msg = msg .. i .. ": " .. condition.type .. " | " .. condition.status .. "\n"
+            if condition.type == "InstallPlanPending" and condition.status == "True" then
+              numPending = numPending + 1
+            elseif (condition.type == "InstallPlanMissing" and condition.reason ~= "ReferencedInstallPlanNotFound") then
+              numDegraded = numDegraded + 1
+            elseif (condition.type == "CatalogSourcesUnhealthy" or condition.type == "InstallPlanFailed" or condition.type == "ResolutionFailed") and condition.status == "True" then
+              numDegraded = numDegraded + 1
+            end
+          end
+        end
+        if numDegraded == 0 and numPending == 0 then
+          health_status.status = "Healthy"
+          health_status.message = msg
+          return health_status
+        elseif numPending > 0 and numDegraded == 0 and obj.spec.installPlanApproval == "Manual" then
+          health_status.status = "Healthy"
+          health_status.message = "An install plan for a subscription is pending installation but install plan approval is set to manual so considering this as healthy: " .. msg
+          return health_status
+        elseif numPending > 0 and numDegraded == 0 then
+          health_status.status = "Progressing"
+          health_status.message = "An install plan for a subscription is pending installation"
+          return health_status
+        else
+          health_status.status = "Degraded"
+          health_status.message = msg
+          return health_status
+        end
+      end
+      return health_status
+
+# Configures RBAC when argocd.install is true.
+# The configuration of either clusterRoleBinding or groups are optional, set to empty '{}' to skip.
+rbac:
+  clusterRoleBinding:
+    clusterRole: cluster-admin
+    serviceAccount: openshift-gitops-argocd-application-controller
+  group:
+    name: cluster-admins
+    users:
+    - admin
+    - ssoadmin

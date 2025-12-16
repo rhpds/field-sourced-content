@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Helm
+charts/*.tgz
+Chart.lock
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Ansible
+*.retry

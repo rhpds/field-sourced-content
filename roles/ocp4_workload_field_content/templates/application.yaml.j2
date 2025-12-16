@@ -1,0 +1,40 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: field-content
+  namespace: {{ ocp4_workload_field_content_namespace }}
+  labels:
+    demo.redhat.com/application: "field-content"
+spec:
+  project: default
+  source:
+    repoURL: {{ ocp4_workload_field_content_gitops_repo_url }}
+    targetRevision: {{ ocp4_workload_field_content_gitops_repo_revision }}
+    path: {{ ocp4_workload_field_content_gitops_repo_path }}
+{% if ocp4_workload_field_content_deployment_type == "helm" %}
+    helm:
+      values: |
+        {{ ocp4_workload_field_content_helm_values
+         | combine(_ocp4_workload_field_content_deployer_values)
+         | to_nice_yaml
+         | indent(width=8, first=False)
+        }}
+{% elif ocp4_workload_field_content_deployment_type == "kustomize" %}
+    plugin:
+      name: kustomize-envvar
+      env:
+        - name: CLUSTER_DOMAIN
+          value: "{{ openshift_cluster_ingress_domain }}"
+        - name: API_URL
+          value: "{{ openshift_api_url }}"
+{% endif %}
+  destination:
+    namespace: {{ ocp4_workload_field_content_namespace }}
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

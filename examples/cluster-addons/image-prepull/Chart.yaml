@@ -1,0 +1,6 @@
+apiVersion: v2
+name: image-prepull
+description: Pre-pull container images to all worker nodes using a DaemonSet
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

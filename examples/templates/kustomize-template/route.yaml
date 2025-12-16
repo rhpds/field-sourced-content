@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: route
+  namespace: field-content-demo
+  labels:
+    app: field-content-demo
+    demo.redhat.com/application: "field-content-demo"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  host: demo-app.$(CLUSTER_DOMAIN)  # Replaced by kustomize-envvar plugin
+  path: /
+  to:
+    kind: Service
+    name: service
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge

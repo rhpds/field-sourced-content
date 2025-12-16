@@ -1,0 +1,184 @@
+---
+# Main Ansible playbook for field content deployment
+# This playbook demonstrates how to create a complete demo environment using Ansible
+
+- name: Deploy Field Content Demo using Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    # Default values (can be overridden by extra vars)
+    app_name: "{{ demo_app_name | default('ansible-demo') }}"
+    app_namespace: "{{ demo_namespace | default('field-content-demo') }}"
+    app_domain: "{{ cluster_domain | default('apps.cluster.example.com') }}"
+    demo_title: "{{ demo_title | default('Ansible Field Content Demo') }}"
+
+  tasks:
+  - name: Display deployment information
+    debug:
+      msg:
+        - "Deploying {{ demo_title }}"
+        - "Application: {{ app_name }}"
+        - "Namespace: {{ app_namespace }}"
+        - "Domain: {{ app_domain }}"
+
+  - name: Create application namespace
+    kubernetes.core.k8s:
+      name: "{{ app_namespace }}"
+      api_version: v1
+      kind: Namespace
+      state: present
+      definition:
+        metadata:
+          labels:
+            demo.redhat.com/application: "{{ app_name }}"
+
+  - name: Deploy demo application
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: "{{ app_name }}"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+          annotations:
+            argocd.argoproj.io/sync-wave: "2"
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: "{{ app_name }}"
+          template:
+            metadata:
+              labels:
+                app: "{{ app_name }}"
+            spec:
+              containers:
+              - name: demo-app
+                image: registry.redhat.io/ubi8/httpd-24:latest
+                ports:
+                - containerPort: 8080
+                env:
+                - name: DEMO_TITLE
+                  value: "{{ demo_title }}"
+                - name: DEPLOYMENT_METHOD
+                  value: "ansible"
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+
+  - name: Create service for demo application
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: "{{ app_name }}-service"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+          annotations:
+            argocd.argoproj.io/sync-wave: "1"
+        spec:
+          type: ClusterIP
+          ports:
+          - port: 8080
+            targetPort: 8080
+            protocol: TCP
+          selector:
+            app: "{{ app_name }}"
+
+  - name: Create route for demo application
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: route.openshift.io/v1
+        kind: Route
+        metadata:
+          name: "{{ app_name }}-route"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+          annotations:
+            argocd.argoproj.io/sync-wave: "2"
+        spec:
+          host: "{{ app_name }}.{{ app_domain }}"
+          path: /
+          to:
+            kind: Service
+            name: "{{ app_name }}-service"
+          port:
+            targetPort: 8080
+          tls:
+            termination: edge
+
+  - name: Create ConfigMap with application configuration
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "{{ app_name }}-config"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/application: "{{ app_name }}"
+          annotations:
+            argocd.argoproj.io/sync-wave: "1"
+        data:
+          demo_title: "{{ demo_title }}"
+          deployment_method: "ansible"
+          app_version: "1.0.0"
+
+  # Optional: Include additional playbooks for complex setups
+  - import_playbook: configure-monitoring.yml
+    when: enable_monitoring | default(false) | bool
+
+  - import_playbook: setup-database.yml
+    when: enable_database | default(false) | bool
+
+  # Always create user info ConfigMap for RHDP integration
+  - name: Create user info ConfigMap for RHDP
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "{{ app_name }}-userinfo"
+          namespace: "{{ app_namespace }}"
+          labels:
+            app: "{{ app_name }}"
+            demo.redhat.com/userinfo: ""  # Required for RHDP integration
+          annotations:
+            argocd.argoproj.io/sync-wave: "3"
+        data:
+          demo_title: "{{ demo_title }}"
+          demo_url: "https://{{ app_name }}.{{ app_domain }}/"
+          access_instructions: "Visit the demo URL to access your Ansible-deployed application"
+          deployment_method: "ansible"
+          ansible_managed: "true"
+          created_by_playbook: "{{ ansible_playbook_file | default('site.yml') }}"
+          # Additional custom data
+          app_namespace: "{{ app_namespace }}"
+          cluster_api: "{{ cluster_api_url | default('') }}"
+
+  - name: Display completion message
+    debug:
+      msg:
+        - "Demo deployment completed successfully!"
+        - "Application URL: https://{{ app_name }}.{{ app_domain }}/"
+        - "Namespace: {{ app_namespace }}"
+        - "Deployed using Ansible automation"

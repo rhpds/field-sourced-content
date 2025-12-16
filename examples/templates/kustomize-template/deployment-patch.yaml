@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  template:
+    spec:
+      containers:
+      - name: demo-app
+        env:
+        - name: ENVIRONMENT
+          value: "field-content"
+        - name: API_URL
+          value: "$(API_URL)"

@@ -1,0 +1,7 @@
+# Images to pre-pull to all worker nodes
+images:
+  - registry.redhat.io/ubi8/ubi:latest
+  - registry.redhat.io/ubi9/ubi:latest
+
+# Namespace for the DaemonSet
+namespace: image-prepull

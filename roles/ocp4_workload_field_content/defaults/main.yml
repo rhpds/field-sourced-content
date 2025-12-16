@@ -1,0 +1,24 @@
+---
+# Field Content GitOps Repository Configuration
+# This will be populated from the user's input via agnosticV variables
+ocp4_workload_field_content_gitops_repo_url: ""
+ocp4_workload_field_content_gitops_repo_revision: main
+ocp4_workload_field_content_gitops_repo_path: ""
+
+# Deployment type: helm, kustomize, ansible, or hybrid
+ocp4_workload_field_content_deployment_type: "helm"
+
+# ArgoCD namespace for the application
+ocp4_workload_field_content_namespace: openshift-gitops
+
+# Helm values to override in the ArgoCD application (if using Helm)
+ocp4_workload_field_content_helm_values: {}
+
+# Health check configuration
+ocp4_workload_field_content_health_retries: 60
+ocp4_workload_field_content_health_ignore: true
+
+# Wait for all applications with our label to be healthy and synced
+ocp4_workload_field_content_application_wait: true
+ocp4_workload_field_content_application_health_retries: 90
+ocp4_workload_field_content_application_health_ignore: true

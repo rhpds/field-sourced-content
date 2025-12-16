@@ -1,0 +1,270 @@
+# Ansible Runner Job Template
+# This template creates a Kubernetes Job that executes Ansible playbooks
+# within a GitOps workflow for field content development
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ansible-runner
+  namespace: field-content-demo
+  labels:
+    demo.redhat.com/application: "field-content"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ansible-runner
+  labels:
+    demo.redhat.com/application: "field-content"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+# Basic Kubernetes resource access
+- apiGroups: [""]
+  resources: ["configmaps", "secrets", "services", "pods", "namespaces"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+# OpenShift specific resources
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["image.openshift.io"]
+  resources: ["imagestreams", "imagestreamtags"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+# Operator and custom resources (add as needed)
+- apiGroups: ["operators.coreos.com"]
+  resources: ["subscriptions", "installplans"]
+  verbs: ["get", "list", "create", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ansible-runner
+  labels:
+    demo.redhat.com/application: "field-content"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+subjects:
+- kind: ServiceAccount
+  name: ansible-runner
+  namespace: field-content-demo
+roleRef:
+  kind: ClusterRole
+  name: ansible-runner
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ansible-runner-config
+  namespace: field-content-demo
+  labels:
+    demo.redhat.com/application: "field-content"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  # Ansible configuration
+  ansible.cfg: |
+    [defaults]
+    host_key_checking = False
+    stdout_callback = yaml
+    library = /opt/ansible/library
+    action_plugins = /opt/ansible/action_plugins
+    filter_plugins = /opt/ansible/filter_plugins
+    retry_files_enabled = False
+    log_path = /tmp/ansible.log
+
+    [inventory]
+    enable_plugins = kubernetes.core.k8s
+
+    [ssh_connection]
+    pipelining = True
+
+  # Python requirements for Ansible
+  requirements.txt: |
+    ansible-runner
+    kubernetes
+    openshift
+    PyYAML
+    requests
+
+  # Example inventory
+  inventory.yaml: |
+    plugin: kubernetes.core.k8s
+    connections:
+      - kubeconfig: /tmp/kubeconfig
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ansible-runner-job
+  namespace: field-content-demo
+  labels:
+    demo.redhat.com/application: "field-content"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  # Set to 1 for manual cleanup, can be overridden for auto-cleanup
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        demo.redhat.com/application: "field-content"
+    spec:
+      serviceAccountName: ansible-runner
+      restartPolicy: Never
+      initContainers:
+      # Init container to prepare the environment
+      - name: ansible-init
+        image: registry.redhat.io/ubi8/python-39:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Install Ansible and required collections
+          pip install --upgrade pip
+          pip install -r /config/requirements.txt
+
+          # Install required Ansible collections
+          ansible-galaxy collection install kubernetes.core
+          ansible-galaxy collection install community.general
+
+          # Copy configuration
+          mkdir -p /shared/ansible
+          cp /config/ansible.cfg /shared/ansible/
+          cp /config/inventory.yaml /shared/ansible/
+
+          # Create kubeconfig from service account token
+          cat > /shared/ansible/kubeconfig << EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: default
+            cluster:
+              certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              server: https://kubernetes.default.svc
+          contexts:
+          - name: default
+            context:
+              cluster: default
+              user: default
+          current-context: default
+          users:
+          - name: default
+            user:
+              token: $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          EOF
+
+          echo "Ansible environment prepared successfully"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: shared-data
+          mountPath: /shared
+
+      containers:
+      - name: ansible-runner
+        image: registry.redhat.io/ubi8/python-39:latest
+        env:
+        # Cluster information passed from field content workload
+        - name: CLUSTER_DOMAIN
+          value: "apps.cluster-guid.guid.sandbox.opentlc.com"  # Will be replaced by field content workload
+        - name: CLUSTER_API_URL
+          value: "https://api.cluster-guid.guid.sandbox.opentlc.com:6443"  # Will be replaced
+        - name: ANSIBLE_CONFIG
+          value: "/ansible/ansible.cfg"
+        - name: KUBECONFIG
+          value: "/ansible/kubeconfig"
+        # Git repository configuration (to be set by ConfigMap or values)
+        - name: GIT_REPO_URL
+          value: "https://github.com/your-username/your-playbooks"  # Replace with actual repo
+        - name: GIT_REPO_BRANCH
+          value: "main"
+        - name: PLAYBOOK_PATH
+          value: "site.yml"  # Path to main playbook in the repo
+
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Starting Ansible runner job..."
+
+          # Change to working directory
+          cd /ansible
+
+          # Clone the Git repository with playbooks
+          echo "Cloning repository: $GIT_REPO_URL"
+          git clone --branch ${GIT_REPO_BRANCH} ${GIT_REPO_URL} /ansible/playbooks
+
+          cd /ansible/playbooks
+
+          # Install any additional requirements from the playbook repository
+          if [ -f requirements.yml ]; then
+            echo "Installing additional Ansible requirements..."
+            ansible-galaxy install -r requirements.yml
+          fi
+
+          if [ -f requirements.txt ]; then
+            echo "Installing additional Python requirements..."
+            pip install -r requirements.txt
+          fi
+
+          # Run the playbook
+          echo "Executing playbook: $PLAYBOOK_PATH"
+          ansible-playbook \
+            -i /ansible/inventory.yaml \
+            --extra-vars "cluster_domain=${CLUSTER_DOMAIN}" \
+            --extra-vars "cluster_api_url=${CLUSTER_API_URL}" \
+            --extra-vars "namespace=field-content-demo" \
+            ${PLAYBOOK_PATH}
+
+          echo "Ansible playbook execution completed successfully"
+
+          # Create output ConfigMap with results (if needed)
+          cat > /tmp/output.yaml << EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: ansible-runner-output
+            namespace: field-content-demo
+            labels:
+              demo.redhat.com/userinfo: ""
+          data:
+            ansible_status: "completed"
+            execution_time: "$(date)"
+            playbook: "${PLAYBOOK_PATH}"
+          EOF
+
+          kubectl apply -f /tmp/output.yaml
+
+          echo "Job completed successfully"
+
+        volumeMounts:
+        - name: shared-data
+          mountPath: /ansible
+
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+
+      volumes:
+      - name: config
+        configMap:
+          name: ansible-runner-config
+      - name: shared-data
+        emptyDir: {}

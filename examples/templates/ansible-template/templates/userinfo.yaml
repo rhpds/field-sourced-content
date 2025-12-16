@@ -1,0 +1,24 @@
+{{- if .Values.userInfo.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.app.name }}-userinfo
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ .Values.app.name }}
+    demo.redhat.com/userinfo: ""  # Required label for RHDP integration
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  # Basic demo information
+  demo_title: {{ .Values.userInfo.data.demo_title | quote }}
+  access_instructions: {{ .Values.userInfo.data.access_instructions | quote }}
+  deployment_approach: {{ .Values.userInfo.data.deployment_approach | quote }}
+  # Cluster information (automatically provided by field content workload)
+  cluster_api: "{{ .Values.deployer.apiUrl }}"
+  cluster_domain: "{{ .Values.deployer.domain }}"
+  # Additional metadata
+  chart_name: "{{ .Chart.Name }}"
+  chart_version: "{{ .Chart.Version }}"
+{{- end }}

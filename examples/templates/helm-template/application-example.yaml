@@ -1,0 +1,40 @@
+# Example ArgoCD Application for testing this Helm template
+# This file shows how your field content will be deployed by RHDP
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: field-content
+  namespace: openshift-gitops
+  labels:
+    demo.redhat.com/application: "field-content"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-username/your-field-content  # Replace with your repo
+    targetRevision: main
+    path: ""  # Path to your Helm chart (empty if chart is in root)
+    helm:
+      values: |
+        # These values are automatically provided by the field content workload
+        deployer:
+          domain: "apps.cluster-guid.guid.sandbox.opentlc.com"
+          apiUrl: "https://api.cluster-guid.guid.sandbox.opentlc.com:6443"
+        fieldContent:
+          deploymentType: "helm"
+
+        # You can also override default values here
+        app:
+          name: my-custom-demo
+        namespace:
+          name: my-demo-namespace
+  destination:
+    namespace: openshift-gitops
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

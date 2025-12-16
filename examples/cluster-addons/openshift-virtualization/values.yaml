@@ -1,0 +1,8 @@
+# OpenShift Virtualization configuration
+namespace: openshift-cnv
+
+operator:
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

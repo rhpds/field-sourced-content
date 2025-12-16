@@ -1,0 +1,37 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ .Values.app.name }}
+    demo.redhat.com/application: "{{ .Values.app.name }}"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.app.name }}
+    spec:
+      containers:
+      - name: {{ .Values.app.name }}
+        image: "{{ .Values.application.image.repository }}:{{ .Values.application.image.tag }}"
+        imagePullPolicy: {{ .Values.application.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.application.service.targetPort }}
+        env:
+        - name: GREETING
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.app.name }}-config
+              key: greeting
+        - name: CLUSTER_DOMAIN
+          value: "{{ .Values.deployer.domain }}"
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

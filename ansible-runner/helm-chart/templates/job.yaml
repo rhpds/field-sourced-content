@@ -1,0 +1,210 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ansible-runner.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "ansible-runner.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWave.job | quote }}
+spec:
+  {{- if gt (.Values.job.ttlSecondsAfterFinished | int) 0 }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "ansible-runner.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      restartPolicy: {{ .Values.job.restartPolicy }}
+      initContainers:
+      # Init container to prepare the environment
+      - name: ansible-init
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Preparing Ansible environment..."
+
+          # Install Ansible and required packages
+          pip install --upgrade pip
+          pip install -r /config/requirements.txt
+
+          # Install required Ansible collections
+          while read collection; do
+            [ -z "$collection" ] || ansible-galaxy collection install "$collection"
+          done < /config/collections.txt
+
+          # Copy configuration
+          mkdir -p /shared/ansible
+          cp /config/ansible.cfg /shared/ansible/
+          cp /config/inventory.yaml /shared/ansible/
+
+          # Create kubeconfig from service account token
+          cat > /shared/ansible/kubeconfig << EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: default
+            cluster:
+              certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              server: https://kubernetes.default.svc
+          contexts:
+          - name: default
+            context:
+              cluster: default
+              user: default
+          current-context: default
+          users:
+          - name: default
+            user:
+              token: \$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          EOF
+
+          echo "Ansible environment prepared successfully"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: shared-data
+          mountPath: /shared
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+
+      containers:
+      - name: ansible-runner
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        # Cluster information (automatically provided by field content workload)
+        - name: CLUSTER_DOMAIN
+          value: "{{ .Values.deployer.domain | default "apps.cluster.example.com" }}"
+        - name: CLUSTER_API_URL
+          value: "{{ .Values.deployer.apiUrl | default "https://api.cluster.example.com:6443" }}"
+        - name: ANSIBLE_CONFIG
+          value: "/ansible/ansible.cfg"
+        - name: KUBECONFIG
+          value: "/ansible/kubeconfig"
+        # Git repository configuration
+        - name: GIT_REPO_URL
+          value: {{ .Values.ansible.repository.url | quote }}
+        - name: GIT_REPO_BRANCH
+          value: {{ .Values.ansible.repository.branch | quote }}
+        - name: PLAYBOOK_PATH
+          value: {{ .Values.ansible.playbook | quote }}
+        - name: NAMESPACE
+          value: {{ .Values.namespace.name | quote }}
+        {{- if .Values.ansible.repository.secretName }}
+        # Git credentials (if using private repository)
+        - name: GIT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.ansible.repository.secretName }}
+              key: username
+        - name: GIT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.ansible.repository.secretName }}
+              key: password
+        {{- end }}
+
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Starting Ansible runner job..."
+          echo "Repository: $GIT_REPO_URL"
+          echo "Branch: $GIT_REPO_BRANCH"
+          echo "Playbook: $PLAYBOOK_PATH"
+
+          # Change to working directory
+          cd /ansible
+
+          # Clone the Git repository with playbooks
+          echo "Cloning repository..."
+          {{- if .Values.ansible.repository.secretName }}
+          git clone --branch ${GIT_REPO_BRANCH} \
+            https://${GIT_USERNAME}:${GIT_PASSWORD}@$(echo ${GIT_REPO_URL} | sed 's|https://||') \
+            /ansible/playbooks
+          {{- else }}
+          git clone --branch ${GIT_REPO_BRANCH} ${GIT_REPO_URL} /ansible/playbooks
+          {{- end }}
+
+          cd /ansible/playbooks
+
+          # Install any additional requirements from the playbook repository
+          if [ -f requirements.yml ]; then
+            echo "Installing additional Ansible requirements..."
+            ansible-galaxy install -r requirements.yml
+          fi
+
+          if [ -f requirements.txt ]; then
+            echo "Installing additional Python requirements..."
+            pip install -r requirements.txt
+          fi
+
+          # Prepare extra variables
+          EXTRA_VARS="cluster_domain=${CLUSTER_DOMAIN} cluster_api_url=${CLUSTER_API_URL} namespace=${NAMESPACE}"
+
+          {{- range $key, $value := .Values.ansible.extraVars }}
+          EXTRA_VARS="$EXTRA_VARS {{ $key }}={{ $value }}"
+          {{- end }}
+
+          # Run the playbook
+          echo "Executing playbook: $PLAYBOOK_PATH"
+          echo "Extra vars: $EXTRA_VARS"
+
+          ansible-playbook \
+            -i /ansible/inventory.yaml \
+            --extra-vars "$EXTRA_VARS" \
+            ${PLAYBOOK_PATH}
+
+          echo "Ansible playbook execution completed successfully"
+
+          {{- if .Values.output.enabled }}
+          # Create output ConfigMap with results
+          cat > /tmp/output.yaml << EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: {{ include "ansible-runner.fullname" . }}-output
+            namespace: {{ .Values.namespace.name }}
+            labels:
+              {{- include "ansible-runner.labels" . | nindent 6 }}
+              {{- if .Values.output.userInfoLabel }}
+              demo.redhat.com/userinfo: ""
+              {{- end }}
+            annotations:
+              argocd.argoproj.io/sync-wave: {{ .Values.syncWave.output | quote }}
+          data:
+            ansible_status: "completed"
+            execution_time: "\$(date)"
+            playbook: "${PLAYBOOK_PATH}"
+            repository: "${GIT_REPO_URL}"
+            branch: "${GIT_REPO_BRANCH}"
+          EOF
+
+          kubectl apply -f /tmp/output.yaml
+          {{- end }}
+
+          echo "Job completed successfully"
+
+        volumeMounts:
+        - name: shared-data
+          mountPath: /ansible
+
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "ansible-runner.fullname" . }}-config
+      - name: shared-data
+        emptyDir: {}

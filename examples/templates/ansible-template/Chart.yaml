@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ansible-field-content
+description: Field content template using Ansible automation
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+maintainers:
+  - name: Your Name
+    email: your.email@redhat.com
+
+dependencies:
+  # Include the ansible-runner as a subchart
+  - name: ansible-runner
+    version: "0.1.0"
+    repository: "file://./charts/ansible-runner"

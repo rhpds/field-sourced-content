@@ -1,0 +1,11 @@
+# Operator configuration
+operator:
+  name: web-terminal
+  namespace: openshift-operators
+  channel: fast
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+
+# Create a dedicated namespace for the operator (optional)
+createNamespace: false
