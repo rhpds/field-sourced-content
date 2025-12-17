@@ -11,18 +11,26 @@ metadata:
 rules:
 # Basic Kubernetes resource access
 - apiGroups: [""]
-  resources: ["configmaps", "secrets", "services", "pods", "namespaces"]
-  verbs: ["get", "list", "create", "update", "patch", "delete"]
+  resources: ["configmaps", "secrets", "services", "serviceaccounts", "pods", "namespaces", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"]
   resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-  verbs: ["get", "list", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+# RBAC resources (needed by showroom and other workloads)
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "bind", "escalate"]
+# Networking resources
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 # OpenShift specific resources
 - apiGroups: ["route.openshift.io"]
   resources: ["routes"]
-  verbs: ["get", "list", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["image.openshift.io"]
   resources: ["imagestreams", "imagestreamtags"]
-  verbs: ["get", "list", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 # Additional rules as specified in values
 {{- with .Values.rbac.additionalRules }}
 {{- toYaml . | nindent 0 }}
