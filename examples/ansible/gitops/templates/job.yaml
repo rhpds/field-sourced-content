@@ -8,6 +8,8 @@ metadata:
     {{- include "ansible-runner.labels" . | nindent 4 }}
   annotations:
     argocd.argoproj.io/sync-wave: {{ .Values.syncWave.job | quote }}
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   {{- if gt (.Values.job.ttlSecondsAfterFinished | int) 0 }}
   ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
