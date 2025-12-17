@@ -11,7 +11,7 @@ collections:
   - name: community.general
     version: ">=5.0.0,<10.0.0"
 
-  # Showroom collection for deploying lab guides
-  - name: https://github.com/agnosticd/showroom.git
-    type: git
-    version: main
+  # NOTE: agnosticd.showroom and agnosticd.core are included locally
+  # in the collections/ directory to avoid external dependency issues.
+  # TODO: Update to use upstream collections when agnosticd.core is
+  # properly packaged and published.

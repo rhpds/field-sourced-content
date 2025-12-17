@@ -1,0 +1,11 @@
+---
+namespace: agnosticd
+name: showroom
+version: 1.0.0
+readme: README.md
+authors:
+  - Field Content Team
+description: Local copy of showroom roles for field content demos
+license:
+  - GPL-3.0-or-later
+dependencies: {}
