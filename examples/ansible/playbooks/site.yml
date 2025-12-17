@@ -34,6 +34,7 @@
     # Showroom settings
     _showroom_git_repo: "{{ showroom_git_repo | default('https://github.com/rhpds/showroom_template_default.git') }}"
     _showroom_git_ref: "{{ showroom_git_ref | default('main') }}"
+    _guid: "{{ guid | default('demo') }}"
 
   tasks:
     - name: Display deployment information
@@ -146,7 +147,7 @@
     - name: Deploy Showroom
       vars:
         ACTION: provision
-        guid: "{{ guid | default('demo') }}"
+        guid: "{{ _guid }}"
         ocp4_workload_showroom_content_git_repo: "{{ _showroom_git_repo }}"
         ocp4_workload_showroom_content_git_repo_ref: "{{ _showroom_git_ref }}"
         showroom_openshift_apps_domain: "{{ cluster_domain }}"
@@ -168,12 +169,12 @@
               demo.redhat.com/application: "web-terminal"
           data:
             demo_title: "Web Terminal Demo"
-            access_instructions: "Access the Showroom lab guide at https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }} - Click the terminal icon (>_) in the OpenShift console to use the Web Terminal."
+            access_instructions: "Access the Showroom lab guide at https://showroom-{{ _guid }}.{{ cluster_domain }} - Click the terminal icon (>_) in the OpenShift console to use the Web Terminal."
             deployment_type: "ansible"
             operator_name: "{{ _operator_name }}"
             demo_app: "{{ _app_name }}"
             demo_namespace: "{{ _demo_namespace }}"
-            showroom_url: "https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }}"
+            showroom_url: "https://showroom-{{ _guid }}.{{ cluster_domain }}"
             cluster_domain: "{{ cluster_domain }}"
 
     - name: Display completion message
@@ -182,5 +183,5 @@
           - "=== Deployment Complete ==="
           - "Operator: {{ _operator_name }} installed and ready"
           - "Application: {{ _app_name }} deployed in {{ _demo_namespace }}"
-          - "Showroom: https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }}"
+          - "Showroom: https://showroom-{{ _guid }}.{{ cluster_domain }}"
           - "Web Terminal: Click the (>_) icon in the OpenShift console"
