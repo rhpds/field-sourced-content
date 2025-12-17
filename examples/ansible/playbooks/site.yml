@@ -144,10 +144,15 @@
         msg: "Application {{ _app_name }} is running and ready!"
 
     # Step 5: Deploy Showroom lab guide
+    # Resolve guid first to avoid template recursion issues
+    - name: Set resolved guid
+      ansible.builtin.set_fact:
+        resolved_guid: "{{ _guid }}"
+
     - name: Deploy Showroom
       vars:
         ACTION: provision
-        guid: "{{ _guid }}"
+        guid: "{{ resolved_guid }}"
         ocp4_workload_showroom_content_git_repo: "{{ _showroom_git_repo }}"
         ocp4_workload_showroom_content_git_repo_ref: "{{ _showroom_git_ref }}"
         showroom_openshift_apps_domain: "{{ cluster_domain }}"
