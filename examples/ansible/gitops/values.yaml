@@ -1,67 +1,95 @@
 # Ansible Example - GitOps Configuration
 # Installs Web Terminal operator, deploys a sample application, and Showroom lab guide
 
-ansible-runner:
-  # Namespace where the ansible-runner job runs
-  namespace:
-    name: openshift-operators
-    create: false  # openshift-operators already exists
+# Job configuration
+job:
+  name: ansible-demo
+  ttlSecondsAfterFinished: 600
+  restartPolicy: Never
 
-  # Git repository containing your Ansible playbooks
-  ansible:
-    repository:
-      # IMPORTANT: Update this to point to YOUR playbook repository
-      url: "https://github.com/your-username/your-repo"
-      branch: "main"
+# Namespace where the ansible-runner job runs
+namespace:
+  name: openshift-operators
+  create: false  # openshift-operators already exists
 
-    # Main playbook to execute
-    playbook: "site.yml"
+# Git repository containing your Ansible playbooks
+ansible:
+  repository:
+    # IMPORTANT: Update this to point to YOUR playbook repository
+    url: "https://github.com/rhpds/field-sourced-content"
+    branch: "main"
+    # Path within the repo to the playbooks directory
+    path: "examples/ansible/playbooks"
 
-    # Python packages to install
-    requirements:
-      - ansible-core
-      - ansible-runner
-      - kubernetes
-      - openshift
-      - PyYAML
-      - requests
+  # Main playbook to execute
+  playbook: "site.yml"
 
-    # Ansible collections (pinned for ansible-core 2.15.x compatibility)
-    collections:
-      - kubernetes.core:==3.2.0
-      - community.general:==9.5.0
-      - git+https://github.com/agnosticd/showroom.git
+  # Python packages to install
+  requirements:
+    - ansible-core
+    - ansible-runner
+    - kubernetes
+    - openshift
+    - PyYAML
+    - requests
 
-    # Extra variables passed to the playbook
-    extraVars:
-      operator_name: "web-terminal"
-      operator_channel: "fast"
-      demo_namespace: "terminal-demo"
-      app_name: "hello-world"
-      # Showroom configuration - UPDATE THIS to your lab guide repository
-      showroom_git_repo: "https://github.com/rhpds/showroom_template_default.git"
-      showroom_git_ref: "main"
+  # Ansible collections (pinned for ansible-core 2.15.x compatibility)
+  collections:
+    - kubernetes.core:==3.2.0
+    - community.general:==9.5.0
+    - git+https://github.com/agnosticd/showroom.git
 
-  # RBAC - permissions for the playbook
-  rbac:
-    create: true
-    additionalRules:
-      # Required for installing operators
-      - apiGroups: ["operators.coreos.com"]
-        resources: ["subscriptions", "clusterserviceversions", "installplans"]
-        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-      # Required for deploying applications
-      - apiGroups: ["apps"]
-        resources: ["deployments"]
-        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-      # Required for Showroom Helm deployment
-      - apiGroups: ["route.openshift.io"]
-        resources: ["routes"]
-        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Extra variables passed to the playbook
+  extraVars:
+    operator_name: "web-terminal"
+    operator_channel: "fast"
+    demo_namespace: "terminal-demo"
+    app_name: "hello-world"
+    # Showroom configuration - UPDATE THIS to your lab guide repository
+    showroom_git_repo: "https://github.com/rhpds/showroom_template_default.git"
+    showroom_git_ref: "main"
 
-  # Job cleanup
-  job:
-    ttlSecondsAfterFinished: 600
+# Container configuration
+image:
+  repository: registry.redhat.io/ubi8/python-39
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# ServiceAccount configuration
+serviceAccount:
+  name: ansible-runner
+  annotations: {}
+
+# RBAC - permissions for the playbook
+rbac:
+  create: true
+  additionalRules:
+    # Required for installing operators
+    - apiGroups: ["operators.coreos.com"]
+      resources: ["subscriptions", "clusterserviceversions", "installplans"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    # Required for deploying applications
+    - apiGroups: ["apps"]
+      resources: ["deployments"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    # Required for Showroom Helm deployment
+    - apiGroups: ["route.openshift.io"]
+      resources: ["routes"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Sync wave for ArgoCD deployment order
+syncWave:
+  rbac: "1"
+  job: "2"
 
 # Values injected by field content workload
 deployer:
