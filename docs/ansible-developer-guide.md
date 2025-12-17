@@ -308,5 +308,5 @@ my-demo/
 ## Getting Help
 
 - Check the [kubernetes.core collection docs](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/)
-- Review the example in `examples/templates/ansible-template/`
+- Review the example in `examples/ansible/`
 - Look at the test playbook in `tests/ansible-test/site.yml`

@@ -281,4 +281,4 @@ image:
 
 ## Examples
 
-See the `examples/templates/ansible-template` directory for a complete example of using Ansible automation in field content.
+See the `examples/ansible/` directory for a complete example of using Ansible automation in field content.

@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: field-content-demo
-  labels:
-    demo.redhat.com/application: "field-content-demo"
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"

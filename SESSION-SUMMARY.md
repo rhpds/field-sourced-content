@@ -146,24 +146,25 @@ ansible-runner:
       demo_title: "My Ansible Demo"
 ```
 
-### 3. Developer Templates (`examples/templates/`)
+### 3. Developer Examples (`examples/`)
 
-**Helm Template**: Complete Helm chart with:
-- RHDP integration via userinfo ConfigMaps
-- Automatic cluster value injection
-- Sync wave configuration
-- Example manifests (deployment, service, route)
+Self-contained examples ready to copy and customize:
 
-**Kustomize Template**: Static manifest deployment:
-- **Limitation**: Environment variable substitution NOT supported
-- Use for manifest collections without cluster-specific values
+**Helm Example** (`examples/helm/`):
+- Complete working HTTPD demo application
+- Uses `deployer.domain` for dynamic route hostname
 - RHDP integration via userinfo ConfigMap
-- Documentation with clear limitations stated
+- Sync wave ordering
 
-**Ansible Template**: Full automation workflow with:
-- Integration with ansible-runner subchart
-- Example playbooks for complex deployments
-- Multi-component automation (app + database + monitoring)
+**Kustomize Example** (`examples/kustomize/`):
+- Static manifest deployment with auto-generated route
+- **Limitation**: No dynamic cluster values
+- Use when you don't need cluster-specific templating
+
+**Ansible Example** (`examples/ansible/`):
+- `gitops/` - Helm chart that creates the ansible-runner Job
+- `playbooks/` - Actual Ansible content with demo-app role
+- Shows wait_for, Jinja2 templates, RHDP integration
 
 ## 📋 Critical Standards & Conventions
 

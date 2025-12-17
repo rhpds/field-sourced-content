@@ -329,34 +329,35 @@ agnosticV → GitOps Bootstrap → [K8s Manifests → Ansible Job → K8s Manife
 - Uses `tokenFile` for service account authentication
 - Tested with ansible-core 2.15.x and pinned collection versions
 
-#### 3. Developer Templates
-**Location**: `examples/templates/`
+#### 3. Developer Examples
+**Location**: `examples/`
 
-**Helm Template** (`helm-template/`):
-- Complete Helm chart structure
-- Automatic value injection from field content workload
-- RHDP integration via ConfigMaps
-- Sync wave configuration
-- Example manifests and documentation
+Each example is self-contained with everything needed to deploy:
 
-**Kustomize Template** (`kustomize-template/`):
+**Helm Example** (`examples/helm/`):
+- Complete Helm chart with working HTTPD demo application
+- Automatic value injection (`deployer.domain`, `deployer.apiUrl`)
+- RHDP integration via userinfo ConfigMap
+- Sync wave configuration for ordered deployment
+
+**Kustomize Example** (`examples/kustomize/`):
 - Pure Kustomize approach for static manifests
 - **Limitation**: Environment variable substitution NOT supported
-- Use when cluster-specific values are not needed
-- RHDP integration via userinfo ConfigMap
-- Complete documentation with limitations documented
+- Route uses auto-generated hostname
+- Recommended for static deployments without cluster-specific values
 
-**Ansible Template** (`ansible-template/`):
-- Integration with ansible-runner component
-- Example playbooks for complex deployments
-- Multi-component automation examples
-- RBAC configuration examples
-- Complete automation workflow
+**Ansible Example** (`examples/ansible/`):
+- Two-part structure: `gitops/` (infrastructure) + `playbooks/` (automation)
+- Complete operator-install role with wait logic
+- Shows how to wait for CSV, use variables, create RHDP integration
+- Best for complex automation requiring programmatic control
 
-#### 4. Example Cluster Addons
-**Location**: `examples/cluster-addons/`
-- **operator-install/**: Generic OLM operator installer (tested with web-terminal)
-- **image-prepull/**: DaemonSet to pre-pull container images to nodes
+#### 4. Cluster Addons
+**Location**: `cluster-addons/`
+
+Reusable Helm charts for common cluster preparation tasks:
+- **operator-install/**: Generic OLM operator installer
+- **image-prepull/**: DaemonSet to pre-pull container images
 - **openshift-virtualization/**: Full CNV stack deployment
 - **webterminal/**: Web Terminal operator
 - **rhoai/**: Red Hat OpenShift AI
