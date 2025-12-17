@@ -1,0 +1,19 @@
+---
+# Step 6: Create userinfo ConfigMap for RHDP integration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-terminal-userinfo
+  namespace: terminal-demo
+  labels:
+    demo.redhat.com/userinfo: ""  # Required label for RHDP integration
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+data:
+  demo_title: "Web Terminal Demo"
+  access_instructions: "Access the Showroom lab guide, then click the terminal icon (>_) in the OpenShift console."
+  deployment_type: "kustomize"
+  operator_name: "web-terminal"
+  demo_app: "hello-world"
+  demo_namespace: "terminal-demo"
+  showroom_namespace: "showroom"

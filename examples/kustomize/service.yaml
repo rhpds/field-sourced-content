@@ -1,0 +1,17 @@
+---
+# Step 3: Service for the demo application
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-world
+  namespace: terminal-demo
+  labels:
+    app: hello-world
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  selector:
+    app: hello-world
+  ports:
+    - port: 8080
+      targetPort: 8080

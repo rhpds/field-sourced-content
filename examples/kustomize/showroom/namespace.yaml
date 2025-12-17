@@ -1,0 +1,8 @@
+---
+# Step 5: Create Showroom namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"

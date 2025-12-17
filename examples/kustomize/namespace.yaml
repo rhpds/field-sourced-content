@@ -1,0 +1,8 @@
+---
+# Step 2: Create the demo namespace for our application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: terminal-demo
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"

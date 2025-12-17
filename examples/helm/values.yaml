@@ -1,0 +1,66 @@
+# Web Terminal Demo Deployment
+# This Helm chart installs Web Terminal operator, deploys a sample application, and Showroom lab guide
+
+# Operator configuration
+operator:
+  name: web-terminal
+  namespace: openshift-operators
+  channel: fast
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+
+# Demo application settings
+demo:
+  namespace: terminal-demo
+  appName: hello-world
+  replicas: 1
+  image: registry.redhat.io/ubi8/httpd-24:latest
+
+# User information for RHDP integration
+userInfo:
+  enabled: true
+  title: "Web Terminal Demo"
+  instructions: "Access the Showroom lab guide, then click the terminal icon (>_) in the OpenShift console."
+
+# ============================================================
+# Showroom Lab Guide Configuration
+# ============================================================
+showroom:
+  enabled: true
+  namespace: showroom
+  name: showroom
+
+  # Lab guide Git repository - UPDATE THIS to your content repository
+  content:
+    repoUrl: "https://github.com/rhpds/showroom_template_default.git"
+    repoRef: "main"
+    antoraPlaybook: "default-site.yml"
+    image: "quay.io/rhpds/showroom-content:v1.3.0"
+
+  # Terminal configuration
+  terminal:
+    enabled: true
+    image: "quay.io/rhpds/openshift-showroom-terminal-ocp:latest"
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+
+  # Zero-touch UI bundle
+  zeroTouch:
+    bundle: "https://github.com/rhpds/nookbag/releases/download/nookbag-v0.2.1/nookbag-v0.2.1.zip"
+    enabled: "true"
+
+# ============================================================
+# Values injected by field content workload (do not modify)
+# ============================================================
+deployer:
+  domain: ""
+  apiUrl: ""
+
+fieldContent:
+  deploymentType: "helm"

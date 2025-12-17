@@ -1,0 +1,9 @@
+apiVersion: v2
+name: web-terminal-demo
+description: Deploy Web Terminal operator, sample application, and Showroom lab guide
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Field Content Developer
+    email: developer@redhat.com

@@ -1,0 +1,10 @@
+---
+# Step 2: Create the demo namespace for our application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.demo.namespace }}
+  labels:
+    demo.redhat.com/application: "web-terminal"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"

@@ -1,0 +1,17 @@
+---
+# Ansible Galaxy Requirements
+# These collections will be installed before playbook execution
+
+collections:
+  # Core Kubernetes support - for k8s module
+  - name: kubernetes.core
+    version: ">=2.3.0,<4.0.0"
+
+  # General community modules
+  - name: community.general
+    version: ">=5.0.0,<10.0.0"
+
+  # Showroom collection for deploying lab guides
+  - name: https://github.com/agnosticd/showroom.git
+    type: git
+    version: main

@@ -1,0 +1,12 @@
+{{- if .Values.showroom.enabled }}
+---
+# Step 5: Create the Showroom namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.showroom.namespace | default "showroom" }}
+  labels:
+    demo.redhat.com/application: "web-terminal"
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+{{- end }}

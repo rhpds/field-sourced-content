@@ -1,0 +1,25 @@
+{{- if .Values.userInfo.enabled }}
+---
+# Step 6: Create userinfo ConfigMap for RHDP integration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-terminal-userinfo
+  namespace: {{ .Values.demo.namespace }}
+  labels:
+    demo.redhat.com/application: "web-terminal"
+    demo.redhat.com/userinfo: ""  # Required label for RHDP integration
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+data:
+  demo_title: {{ .Values.userInfo.title | quote }}
+  access_instructions: {{ .Values.userInfo.instructions | quote }}
+  deployment_type: "helm"
+  operator_name: {{ .Values.operator.name | quote }}
+  demo_app: {{ .Values.demo.appName | quote }}
+  demo_namespace: {{ .Values.demo.namespace | quote }}
+  {{- if .Values.showroom.enabled }}
+  showroom_url: "https://showroom.{{ .Values.deployer.domain }}"
+  {{- end }}
+  cluster_domain: "{{ .Values.deployer.domain }}"
+{{- end }}

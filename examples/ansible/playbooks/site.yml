@@ -1,0 +1,182 @@
+---
+# Main Ansible Playbook - Install Web Terminal, Deploy Sample Application, and Showroom
+#
+# This playbook demonstrates Ansible's multi-step workflow capabilities:
+# 1. Install the Web Terminal operator
+# 2. Wait for the operator to be fully ready
+# 3. Create a demo namespace
+# 4. Deploy a sample httpd application
+# 5. Wait for deployment to be ready
+# 6. Deploy Showroom lab guide
+# 7. Create userinfo ConfigMap for RHDP
+#
+# Variables automatically provided by ansible-runner:
+#   - cluster_domain: The cluster's apps domain
+#   - cluster_api_url: The Kubernetes API URL
+#   - namespace: The namespace where the job runs
+
+- name: Deploy Web Terminal with Sample Application and Showroom
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Operator settings
+    operator_name: "{{ operator_name | default('web-terminal') }}"
+    operator_channel: "{{ operator_channel | default('fast') }}"
+    operator_namespace: "openshift-operators"
+
+    # Demo settings
+    demo_namespace: "{{ demo_namespace | default('terminal-demo') }}"
+    app_name: "{{ app_name | default('hello-world') }}"
+    app_image: "{{ app_image | default('registry.redhat.io/ubi8/httpd-24:latest') }}"
+
+    # Showroom settings
+    showroom_git_repo: "{{ showroom_git_repo | default('https://github.com/rhpds/showroom_template_default.git') }}"
+    showroom_git_ref: "{{ showroom_git_ref | default('main') }}"
+
+  tasks:
+    - name: Display deployment information
+      ansible.builtin.debug:
+        msg:
+          - "=== Web Terminal Deployment ==="
+          - "Operator: {{ operator_name }}"
+          - "Channel: {{ operator_channel }}"
+          - "Demo Namespace: {{ demo_namespace }}"
+          - "Demo App: {{ app_name }}"
+          - "Showroom Repo: {{ showroom_git_repo }}"
+          - "Cluster: {{ cluster_domain }}"
+
+    # Step 1: Install the operator
+    - name: Include the operator-install role
+      ansible.builtin.include_role:
+        name: operator-install
+
+    # Step 2: Create demo namespace
+    - name: Create demo namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ demo_namespace }}"
+            labels:
+              demo.redhat.com/application: "web-terminal"
+
+    # Step 3: Deploy sample httpd application
+    - name: Create hello-world Deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}"
+            namespace: "{{ demo_namespace }}"
+            labels:
+              demo.redhat.com/application: "web-terminal"
+              app: "{{ app_name }}"
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: "{{ app_name }}"
+            template:
+              metadata:
+                labels:
+                  app: "{{ app_name }}"
+              spec:
+                containers:
+                  - name: httpd
+                    image: "{{ app_image }}"
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      limits:
+                        memory: "128Mi"
+                        cpu: "100m"
+                      requests:
+                        memory: "64Mi"
+                        cpu: "50m"
+
+    - name: Create hello-world Service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}"
+            namespace: "{{ demo_namespace }}"
+            labels:
+              demo.redhat.com/application: "web-terminal"
+              app: "{{ app_name }}"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+            ports:
+              - port: 8080
+                targetPort: 8080
+
+    # Step 4: Wait for deployment to be ready
+    - name: Wait for hello-world deployment to be ready
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ app_name }}"
+        namespace: "{{ demo_namespace }}"
+      register: deployment_info
+      until: >-
+        deployment_info.resources | length > 0 and
+        deployment_info.resources[0].status.readyReplicas is defined and
+        deployment_info.resources[0].status.readyReplicas >= 1
+      retries: 30
+      delay: 10
+
+    - name: Application is ready
+      ansible.builtin.debug:
+        msg: "Application {{ app_name }} is running and ready!"
+
+    # Step 5: Deploy Showroom lab guide
+    - name: Deploy Showroom
+      vars:
+        ACTION: provision
+        guid: "{{ guid | default('demo') }}"
+        ocp4_workload_showroom_content_git_repo: "{{ showroom_git_repo }}"
+        ocp4_workload_showroom_content_git_repo_ref: "{{ showroom_git_ref }}"
+        showroom_openshift_apps_domain: "{{ cluster_domain }}"
+      ansible.builtin.include_role:
+        name: agnosticd.showroom.ocp4_workload_showroom
+
+    # Step 6: Create userinfo ConfigMap for RHDP
+    - name: Create userinfo ConfigMap
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: web-terminal-userinfo
+            namespace: "{{ demo_namespace }}"
+            labels:
+              demo.redhat.com/userinfo: ""
+              demo.redhat.com/application: "web-terminal"
+          data:
+            demo_title: "Web Terminal Demo"
+            access_instructions: "Access the Showroom lab guide at https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }} - Click the terminal icon (>_) in the OpenShift console to use the Web Terminal."
+            deployment_type: "ansible"
+            operator_name: "{{ operator_name }}"
+            demo_app: "{{ app_name }}"
+            demo_namespace: "{{ demo_namespace }}"
+            showroom_url: "https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }}"
+            cluster_domain: "{{ cluster_domain }}"
+
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg:
+          - "=== Deployment Complete ==="
+          - "Operator: {{ operator_name }} installed and ready"
+          - "Application: {{ app_name }} deployed in {{ demo_namespace }}"
+          - "Showroom: https://showroom-{{ guid | default('demo') }}.{{ cluster_domain }}"
+          - "Web Terminal: Click the (>_) icon in the OpenShift console"

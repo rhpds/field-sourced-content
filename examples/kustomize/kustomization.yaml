@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Common labels applied to all resources
+labels:
+  - pairs:
+      demo.redhat.com/application: web-terminal
+    includeSelectors: false
+
+# Resources to include (deployed in order via sync-waves)
+resources:
+  - subscription.yaml           # Step 1: Install the Web Terminal operator
+  - namespace.yaml              # Step 2: Create demo namespace
+  - deployment.yaml             # Step 3: Deploy sample application
+  - service.yaml                # Step 3: Service for the application
+  - showroom/namespace.yaml     # Step 5: Showroom namespace
+  - showroom/showroom.yaml      # Step 5: Showroom lab guide
+  - userinfo.yaml               # Step 6: RHDP integration

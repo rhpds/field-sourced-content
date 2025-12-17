@@ -1,0 +1,18 @@
+---
+# Step 3: Service for the demo application
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.demo.appName }}
+  namespace: {{ .Values.demo.namespace }}
+  labels:
+    demo.redhat.com/application: "web-terminal"
+    app: {{ .Values.demo.appName }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  selector:
+    app: {{ .Values.demo.appName }}
+  ports:
+    - port: 8080
+      targetPort: 8080

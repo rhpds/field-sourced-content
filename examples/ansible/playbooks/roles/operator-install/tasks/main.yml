@@ -1,0 +1,67 @@
+---
+# Install an operator via OLM and wait for it to be ready
+# This demonstrates Ansible's advantage over Helm/Kustomize:
+# - Wait for resources to be ready
+# - Conditional logic
+# - Multi-step workflows
+
+- name: Create Subscription for {{ install_operator_name }}
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: Subscription
+      metadata:
+        name: "{{ install_operator_name }}"
+        namespace: "{{ install_operator_namespace }}"
+        labels:
+          demo.redhat.com/application: "{{ install_operator_name }}"
+      spec:
+        channel: "{{ install_operator_channel }}"
+        installPlanApproval: Automatic
+        name: "{{ install_operator_name }}"
+        source: "{{ install_operator_source }}"
+        sourceNamespace: "{{ install_operator_source_namespace }}"
+
+- name: Wait for Subscription to have a currentCSV
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ install_operator_name }}"
+    namespace: "{{ install_operator_namespace }}"
+  register: subscription_info
+  until: >-
+    subscription_info.resources | length > 0 and
+    subscription_info.resources[0].status.currentCSV is defined
+  retries: "{{ install_wait_retries }}"
+  delay: "{{ install_wait_delay }}"
+
+- name: Get the CSV name from Subscription
+  ansible.builtin.set_fact:
+    operator_csv: "{{ subscription_info.resources[0].status.currentCSV }}"
+
+- name: Display CSV being installed
+  ansible.builtin.debug:
+    msg: "Installing CSV: {{ operator_csv }}"
+
+- name: Wait for ClusterServiceVersion to succeed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ operator_csv }}"
+    namespace: "{{ install_operator_namespace }}"
+  register: csv_info
+  until: >-
+    csv_info.resources | length > 0 and
+    csv_info.resources[0].status.phase is defined and
+    csv_info.resources[0].status.phase == "Succeeded"
+  retries: "{{ install_wait_retries }}"
+  delay: "{{ install_wait_delay }}"
+
+- name: Operator installation successful
+  ansible.builtin.debug:
+    msg: "Operator {{ install_operator_name }} ({{ operator_csv }}) installed successfully!"
+
+- name: Operator {{ install_operator_name }} is ready
+  ansible.builtin.debug:
+    msg: "Operator {{ install_operator_name }} ({{ operator_csv }}) is ready for use"
