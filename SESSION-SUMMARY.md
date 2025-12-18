@@ -252,6 +252,123 @@ Self-contained examples ready to copy and customize:
 The implementation successfully addresses all your original requirements and follows your established conventions. The modular design allows developers to choose their preferred automation approach while maintaining consistent RHDP integration.
 
 ---
+
+## 📅 Session: 2025-12-17
+
+### Objective
+Restructure examples folder and add Showroom integration to all deployment patterns.
+
+### What was accomplished
+
+1. **Restructured examples folder** - Updated Helm, Kustomize, and Ansible patterns to:
+   - Use Web Terminal operator as primary workload
+   - Include multi-step workflows (operator install → demo app → Showroom)
+   - Add Showroom lab guide as the final deployment step
+
+2. **Committed all changes to git** - All three examples updated and pushed
+
+3. **Installed OpenShift GitOps operator** on SNO 4.20 cluster
+
+4. **Deployed Ansible example via ArgoCD** - The ansible-runner job successfully:
+   - Installed Web Terminal operator ✅
+   - Created demo namespace and hello-world application ✅
+   - Installed Helm CLI (required by showroom role) ✅
+   - Reached Showroom deployment step
+
+### Fixes applied during testing
+
+1. **Ansible variable recursion** ([site.yml](examples/ansible/playbooks/site.yml))
+   - Variables like `app_image: "{{ app_image | default('...') }}"` cause infinite recursion when passed as extra-vars
+   - Fixed by using underscore-prefixed internal variables: `_app_image: "{{ app_image | default('...') }}"`
+   - Used `set_fact` to resolve `_guid` before passing to showroom role
+
+2. **Missing Helm CLI** ([job.yaml](examples/ansible/gitops/templates/job.yaml))
+   - Showroom role requires helm to render its chart templates
+   - Added helm installation step in the job container
+
+3. **RBAC permissions** ([clusterrole.yaml](examples/ansible/gitops/templates/clusterrole.yaml))
+   - Added `serviceaccounts`, `persistentvolumeclaims` to core API resources
+   - Added RBAC resources (roles, rolebindings, clusterroles, clusterrolebindings)
+   - Added networking resources (ingresses, networkpolicies)
+   - Added `watch` verb to all resources
+
+4. **ArgoCD hook annotations** ([job.yaml](examples/ansible/gitops/templates/job.yaml))
+   - Added `argocd.argoproj.io/hook: Sync` and `BeforeHookCreation` delete policy
+   - Ensures job is deleted and recreated on each sync
+
+5. **Local showroom collection** ([collections/](examples/ansible/playbooks/collections/))
+   - Copied `agnosticd.showroom` role and `agnosticd.core` plugins locally
+   - Created galaxy.yml files for both
+   - Added ansible.cfg with collections_paths
+
+### Current blocker
+
+The Showroom role deployment is **failing with RBAC permission errors**:
+```
+serviceaccounts "showroom" is forbidden: User "system:serviceaccount:openshift-operators:ansible-runner"
+cannot get resource "serviceaccounts" in API group "" in the namespace "showroom-demo"
+```
+
+The last commit (b3403e7) expanded the ClusterRole permissions, but testing was interrupted when the cluster stopped.
+
+### Pending tasks
+
+| Task | Status |
+|------|--------|
+| Deploy and test Ansible example via GitOps | 🔄 In Progress |
+| Fix ansible-runner namespace (was incorrectly using openshift-operators) | ✅ Fixed |
+| Create script to regenerate Helm/Kustomize showroom manifests | ⏳ Pending |
+| Fix agnosticd.core dependency for showroom role | ⏳ Pending |
+
+---
+
+## 📅 Session: 2025-12-18
+
+### Issue identified
+
+**Ansible-runner job was scheduled in wrong namespace**
+
+The ansible-runner job was configured to run in `openshift-operators` namespace, which is incorrect:
+- The `openshift-operators` namespace is reserved for OLM operators only
+- Our deployment jobs should NOT run in system namespaces
+- This caused confusion with RBAC and resource ownership
+
+### Fix applied
+
+1. Updated [values.yaml](examples/ansible/gitops/values.yaml) to use dedicated `ansible-runner` namespace:
+   ```yaml
+   namespace:
+     name: ansible-runner
+     create: true
+   ```
+
+2. Created new [namespace.yaml](examples/ansible/gitops/templates/namespace.yaml) template with sync-wave: "0"
+
+3. Sync wave order is now:
+   - Wave 0: Namespace
+   - Wave 1: ServiceAccount, ClusterRole, ClusterRoleBinding, ConfigMap
+   - Wave 2: Job
+
+### For next session
+
+1. **Start with a fresh cluster** - Avoid stuck resources from previous testing
+2. **Test Showroom deployment** with expanded RBAC permissions
+3. **Consider simplifying Showroom integration** - The current approach using the full `ocp4_workload_showroom` role may be overly complex for this use case. Options:
+   - Create a lighter-weight showroom deployment (just helm chart + minimal config)
+   - Use the showroom helm chart directly instead of through the Ansible role
+   - Document the complexity and provide simpler alternatives
+
+### Key commits today
+
+| Commit | Description |
+|--------|-------------|
+| Various | Restructured examples with Showroom integration |
+| 33e6b50 | Use set_fact to resolve guid before passing to showroom role |
+| 97f6513 | Install helm in ansible-runner container |
+| b3403e7 | Expand ClusterRole permissions for showroom deployment |
+
+---
 *Session completed: 2025-12-16*
 *Testing completed: 2025-12-16 (OpenShift 4.20 SNO)*
+*Session continued: 2025-12-17 (Showroom integration - in progress)*
 *Repository: https://github.com/rhpds/field-sourced-content*

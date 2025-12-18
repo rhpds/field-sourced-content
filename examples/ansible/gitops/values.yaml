@@ -8,9 +8,10 @@ job:
   restartPolicy: Never
 
 # Namespace where the ansible-runner job runs
+# NOTE: Do NOT use openshift-operators - that namespace is for operators only
 namespace:
-  name: openshift-operators
-  create: false  # openshift-operators already exists
+  name: ansible-runner
+  create: true
 
 # Git repository containing your Ansible playbooks
 ansible:
@@ -34,10 +35,10 @@ ansible:
     - requests
 
   # Ansible collections (pinned for ansible-core 2.15.x compatibility)
+  # Note: agnosticd.showroom is NOT needed - we use a local deploy-showroom role
   collections:
     - kubernetes.core:==3.2.0
     - community.general:==9.5.0
-    - git+https://github.com/agnosticd/showroom.git
 
   # Extra variables passed to the playbook
   extraVars:

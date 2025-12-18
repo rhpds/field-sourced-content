@@ -144,20 +144,14 @@
         msg: "Application {{ _app_name }} is running and ready!"
 
     # Step 5: Deploy Showroom lab guide
-    # Resolve guid first to avoid template recursion issues
-    - name: Set resolved guid
-      ansible.builtin.set_fact:
-        resolved_guid: "{{ _guid }}"
-
     - name: Deploy Showroom
       vars:
-        ACTION: provision
-        guid: "{{ resolved_guid }}"
-        ocp4_workload_showroom_content_git_repo: "{{ _showroom_git_repo }}"
-        ocp4_workload_showroom_content_git_repo_ref: "{{ _showroom_git_ref }}"
-        showroom_openshift_apps_domain: "{{ cluster_domain }}"
+        showroom_guid: "{{ _guid }}"
+        showroom_deployer_domain: "{{ cluster_domain }}"
+        showroom_content_git_repo: "{{ _showroom_git_repo }}"
+        showroom_content_git_repo_ref: "{{ _showroom_git_ref }}"
       ansible.builtin.include_role:
-        name: agnosticd.showroom.ocp4_workload_showroom
+        name: deploy-showroom
 
     # Step 6: Create userinfo ConfigMap for RHDP
     - name: Create userinfo ConfigMap
@@ -174,12 +168,12 @@
               demo.redhat.com/application: "web-terminal"
           data:
             demo_title: "Web Terminal Demo"
-            access_instructions: "Access the Showroom lab guide at https://showroom-{{ _guid }}.{{ cluster_domain }} - Click the terminal icon (>_) in the OpenShift console to use the Web Terminal."
+            access_instructions: "Access the Showroom lab guide at {{ showroom_url }} - Click the terminal icon (>_) in the OpenShift console to use the Web Terminal."
             deployment_type: "ansible"
             operator_name: "{{ _operator_name }}"
             demo_app: "{{ _app_name }}"
             demo_namespace: "{{ _demo_namespace }}"
-            showroom_url: "https://showroom-{{ _guid }}.{{ cluster_domain }}"
+            showroom_url: "{{ showroom_url }}"
             cluster_domain: "{{ cluster_domain }}"
 
     - name: Display completion message
@@ -188,5 +182,5 @@
           - "=== Deployment Complete ==="
           - "Operator: {{ _operator_name }} installed and ready"
           - "Application: {{ _app_name }} deployed in {{ _demo_namespace }}"
-          - "Showroom: https://showroom-{{ _guid }}.{{ cluster_domain }}"
+          - "Showroom: {{ showroom_url }}"
           - "Web Terminal: Click the (>_) icon in the OpenShift console"
