@@ -9,6 +9,8 @@ This example demonstrates a multi-step Ansible deployment that:
 6. Deploys Showroom lab guide
 7. Creates RHDP userinfo ConfigMap
 
+![Ansible Pattern Diagram](../../docs/ansible-pattern.png)
+
 ## What This Deploys
 
 - **Web Terminal Operator** - Installed via OLM Subscription with wait logic
@@ -37,7 +39,7 @@ The key advantage of Ansible over Helm/Kustomize is **guaranteed ordering with w
 
 # Deploy Showroom after everything is ready
 - ansible.builtin.include_role:
-    name: agnosticd.showroom.ocp4_workload_showroom
+    name: deploy-showroom  # Local simplified role
 ```
 
 With Helm/Kustomize, sync waves are best-effort. With Ansible, you're guaranteed that:
@@ -52,15 +54,21 @@ ansible/
 ├── README.md
 ├── gitops/                     # GitOps config (ArgoCD deploys this)
 │   ├── Chart.yaml              # Uses ansible-runner as dependency
-│   └── values.yaml             # Configuration
+│   ├── values.yaml             # Configuration
+│   └── templates/
+│       └── namespace.yaml      # Creates ansible-runner namespace
 │
 └── playbooks/                  # Ansible content (cloned at runtime)
     ├── site.yml                # Main playbook with multi-step workflow
-    ├── requirements.yml        # Collections to install (includes showroom)
+    ├── ansible.cfg             # Ansible configuration
     └── roles/
-        └── operator-install/   # Reusable role for operator installation
+        ├── operator-install/   # Reusable role for operator installation
+        │   ├── defaults/main.yml
+        │   └── tasks/main.yml
+        └── deploy-showroom/    # Simplified Showroom deployment role
             ├── defaults/main.yml
-            └── tasks/main.yml
+            ├── tasks/main.yml
+            └── README.md
 ```
 
 ## How It Works
@@ -124,7 +132,7 @@ ansible:
     showroom_git_ref: "main"
 ```
 
-The Ansible playbook uses the `agnosticd.showroom.ocp4_workload_showroom` role which is included in `requirements.yml`.
+The Ansible playbook uses a local `deploy-showroom` role (in `playbooks/roles/deploy-showroom/`) which is a simplified version of the upstream `agnosticd.showroom.ocp4_workload_showroom` role without the `agnosticd.core` dependency. This role uses `kubernetes.core.helm_template` to render the Showroom Helm chart and deploy it to the cluster.
 
 ## Customization
 

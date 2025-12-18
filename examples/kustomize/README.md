@@ -7,12 +7,14 @@ This example demonstrates a multi-step Kustomize deployment that:
 4. Deploys Showroom lab guide
 5. Creates RHDP userinfo ConfigMap
 
+![Kustomize Pattern Diagram](../../docs/kustomize-pattern.png)
+
 ## What This Deploys
 
 - **Web Terminal Operator** - Installed via OLM Subscription
 - **Demo Namespace** - `terminal-demo` namespace for the sample application
 - **Sample Application** - A simple httpd deployment you can access via the Web Terminal
-- **Showroom Lab Guide** - Interactive lab instructions with embedded terminal
+- **Showroom Lab Guide** - Interactive lab instructions with embedded terminal (3 containers: nginx, content, terminal)
 - **Userinfo ConfigMap** - RHDP integration with access instructions
 
 ## Quick Start

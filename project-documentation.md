@@ -364,38 +364,62 @@ Reusable Helm charts for common cluster preparation tasks:
 
 ### ✅ Testing Status
 
-All components have been tested on OpenShift 4.20 SNO cluster:
+All examples have been tested end-to-end via ArgoCD GitOps deployment:
+
+| Example | Status | Deploy Time | Notes |
+|---------|--------|-------------|-------|
+| **Ansible** | ✅ PASSED | ~2.5 min | ansible-runner job with Showroom |
+| **Helm** | ✅ PASSED | ~30 sec | Direct manifest deployment |
+| **Kustomize** | ✅ PASSED | ~35 sec | Static manifests |
+
+Each example deploys:
+- Web Terminal operator (v1.15.0)
+- Demo namespace with hello-world httpd app
+- Showroom lab guide (3 containers: nginx, content, terminal)
+- Userinfo ConfigMap with RHDP labels
+
+#### Cluster Addons Testing
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Operator Install (web-terminal) | ✅ PASSED | OLM Subscription working |
 | Image Pre-Pull | ✅ PASSED | DaemonSet deploys to all nodes |
 | OpenShift Virtualization | ✅ PASSED | Full CNV stack deployed |
-| Helm Template | ✅ PASSED | Value substitution working |
-| Kustomize Template | ✅ PASSED | Static manifests, env vars NOT supported |
-| Ansible Runner | ✅ PASSED | Playbook execution and ConfigMap creation |
 
 ### 🔧 Key Fixes Applied During Testing
 
-1. **Ansible Runner**:
+1. **Ansible Example**:
+   - Created simplified `deploy-showroom` role without `agnosticd.core` dependency
+   - ansible-runner job runs in dedicated `ansible-runner` namespace (not openshift-operators)
+   - Pinned collections: `kubernetes.core:==3.2.0`, `community.general:==9.5.0`
+   - Uses `kubernetes.core.helm_template` to render Showroom Helm chart
+
+2. **Ansible Runner**:
    - Simplified to single-container architecture
    - Fixed kubeconfig to use `tokenFile` instead of shell expansion
    - Added `ansible-core` to requirements
-   - Pinned collections: `kubernetes.core:==3.2.0`, `community.general:==9.5.0`
    - Changed `stdout_callback` from `yaml` to `default`
 
-2. **Kustomize Template**:
-   - Removed unsupported `replacements.options` and `metadata` fields
-   - Removed `$(CLUSTER_DOMAIN)` patterns (not supported)
+3. **Kustomize Example**:
+   - Static manifests (no variable substitution)
+   - Route uses auto-generated hostname
    - Documented limitations clearly
+
+### 📋 Documentation
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| Project Documentation | `project-documentation.md` | Overall project overview |
+| Showroom Update Spec | `docs/SHOWROOM-UPDATE-SPEC.md` | Guide for updating Showroom manifests |
+| Ansible Developer Guide | `docs/ansible-developer-guide.md` | Ansible pattern details |
+| Architecture Diagrams | `docs/*.png` | Visual architecture diagrams |
 
 ### 📋 Next Steps
 
-1. **E2E Testing**: Run fresh end-to-end tests on a new cluster
-2. **Integration Validation**: Verify integration with existing RHDP infrastructure
-3. **Cluster Addon Creation Guide**: Create AsciiDoc documentation (TODO)
-4. **Developer Onboarding**: Create user guides
+1. **Integration Validation**: Verify integration with existing RHDP infrastructure
+2. **Cluster Addon Creation Guide**: Create AsciiDoc documentation (TODO)
+3. **Developer Onboarding**: Create user guides
 
 ---
 
-*Last Updated: 2025-12-16*
+*Last Updated: 2025-12-18*

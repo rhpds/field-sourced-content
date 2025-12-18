@@ -7,12 +7,14 @@ This example demonstrates a multi-step Helm deployment that:
 4. Deploys Showroom lab guide
 5. Creates RHDP userinfo ConfigMap
 
+![Helm Pattern Diagram](../../docs/helm-pattern.png)
+
 ## What This Deploys
 
 - **Web Terminal Operator** - Provides browser-based terminal access directly in the OpenShift console
 - **Demo Namespace** - `terminal-demo` namespace for the sample application
 - **Sample Application** - A simple httpd deployment you can access via the Web Terminal
-- **Showroom Lab Guide** - Interactive lab instructions with embedded terminal
+- **Showroom Lab Guide** - Interactive lab instructions with embedded terminal (3 containers: nginx, content, terminal)
 - **Userinfo ConfigMap** - RHDP integration with access instructions
 
 ## Quick Start

@@ -15,6 +15,7 @@ Chart.lock
 __pycache__/
 *.pyc
 .env
+.venv/
 
 # Ansible
 *.retry
